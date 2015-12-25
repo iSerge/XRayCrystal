@@ -1,0 +1,37 @@
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'idea'
+apply plugin: 'application'
+
+sourceCompatibility = 1.8
+version = '0.1'
+
+mainClassName = 'org.xraycrystal.Main'
+
+jar {
+    manifest {
+        attributes 'Implementation-Title': 'Simulation of X-ray crystallogram',
+                   'Implementation-Version': version
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile 'org.jogamp.jogl:jogl-all-main:2.3.2'
+    compile 'org.jogamp.jocl:jocl-main:2.3.2'
+    compile 'net.sourceforge.jmol:jmol:13.0.14'
+
+    testCompile 'org.testng:testng:6.1.1'
+}
+
+test {
+   useTestNG()
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.10'
+}
+
