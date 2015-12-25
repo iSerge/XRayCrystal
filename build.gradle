@@ -10,7 +10,7 @@ mainClassName = 'org.xraycrystal.Main'
 
 jar {
     manifest {
-        attributes 'Implementation-Title': 'Simulation of X-ray crystallogram',
+        attributes 'Implementation-Title': 'Simulation of Bragg X-ray diffraction in crystalline structures',
                    'Implementation-Version': version
     }
 }
