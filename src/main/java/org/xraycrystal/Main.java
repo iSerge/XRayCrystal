@@ -1,19 +1,16 @@
 package org.xraycrystal;
 
-import org.jmol.adapter.smarter.AtomSetCollection;
 import org.jmol.adapter.smarter.AtomSetCollectionReader;
 import org.jmol.adapter.smarter.SmarterJmolAdapter;
-import org.jmol.api.JmolAdapter;
-import org.jmol.api.JmolSimpleViewer;
-import org.jmol.api.JmolViewer;
-import org.jmol.util.Logger;
+import org.jmol.api.*;
+import org.jmol.constant.EnumCallback;
 import org.jmol.viewer.Viewer;
-import org.openscience.jmol.app.jmolpanel.JmolPanel;
 
 import javax.swing.*;
 import javax.vecmath.Point3f;
 import java.awt.*;
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStreamReader;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,7 +38,7 @@ public class Main {
         mainFrame.setLocationRelativeTo(null);
 
         loadBtn.addActionListener( a -> {
-            JFileChooser fc = new JFileChooser();
+            JFileChooser fc = new JFileChooser(new File("."));
             fc.setMultiSelectionEnabled(false);
             fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
 
@@ -52,7 +49,7 @@ public class Main {
         });
 
         mainFrame.setVisible(true);
-        jmol.loadFileFromResource("/Au-Gold.cif");
+        //jmol.loadFileFromResource("/Quartz.cif");
     }
 
     static class JmolPanel extends JPanel{
@@ -62,6 +59,28 @@ public class Main {
         JmolPanel() {
             adapter = new SmarterJmolAdapter();
             viewer = Viewer.allocateViewer(this, adapter, null, null, null, null, null, null);
+            viewer.setShowMeasurements(false);
+
+            viewer.setJmolCallbackListener(new JmolCallbackListener() {
+                @Override
+                public void setCallbackFunction(String callbackType, String callbackFunction) {
+                }
+
+                @Override
+                public void notifyCallback(EnumCallback message, Object[] data) {
+                    if(data.length > 0 && data[1] instanceof Integer){
+                        if((Integer)data[4] < 0){
+                            System.out.println("Orientation changed");
+                        }
+                    }
+                }
+
+                @Override
+                public boolean notifyEnabled(EnumCallback type) {
+                    return EnumCallback.CLICK == type;
+                }
+            });
+
         }
 
         public JmolSimpleViewer getViewer() {
