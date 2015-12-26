@@ -1,5 +1,6 @@
 package org.xraycrystal;
 
+import org.jmol.adapter.smarter.AtomSetCollection;
 import org.jmol.adapter.smarter.AtomSetCollectionReader;
 import org.jmol.adapter.smarter.SmarterJmolAdapter;
 import org.jmol.api.*;
@@ -9,9 +10,7 @@ import org.jmol.viewer.Viewer;
 import javax.swing.*;
 import javax.vecmath.Point3f;
 import java.awt.*;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -44,7 +43,39 @@ public class Main {
 
             int retval = fc.showOpenDialog(mainFrame);
             if(JFileChooser.APPROVE_OPTION == retval){
-                jmol.readFile(fc.getSelectedFile().getAbsolutePath());
+                String file = fc.getSelectedFile().getAbsolutePath();
+                jmol.readFile(file);
+            }
+        });
+
+        jmol.getViewer().setJmolCallbackListener(new JmolCallbackListener() {
+            @Override
+            public void setCallbackFunction(String callbackType, String callbackFunction) {
+            }
+
+            @Override
+            public void notifyCallback(EnumCallback message, Object[] data) {
+                if(EnumCallback.CLICK == message && data.length > 0 && data[1] instanceof Integer) {
+                    if ((Integer) data[4] < 0) {
+                        System.out.println("Orientation changed");
+                    }
+                } else if(EnumCallback.LOADSTRUCT == message){
+                    JmolViewer viewer = jmol.getViewer();
+                    System.out.println("Got " + viewer.getAtomCount() + " atoms");
+                    viewer.getUnscaledTransformMatrix();
+                    for(int i = 0; i < Math.min(3,viewer.getAtomCount()); ++i){
+                        System.out.print(viewer.getAtomName(i));
+                        Point3f a = viewer.getAtomPoint3f(i);
+                        System.out.println(String.format("  %f, %f, %f", a.x, a.y, a.x));
+                    }
+                } else {
+                    System.out.println("CallbackNotify: " + message);
+                }
+            }
+
+            @Override
+            public boolean notifyEnabled(EnumCallback type) {
+                return EnumCallback.CLICK == type || EnumCallback.LOADSTRUCT == type;
             }
         });
 
@@ -60,30 +91,9 @@ public class Main {
             adapter = new SmarterJmolAdapter();
             viewer = Viewer.allocateViewer(this, adapter, null, null, null, null, null, null);
             viewer.setShowMeasurements(false);
-
-            viewer.setJmolCallbackListener(new JmolCallbackListener() {
-                @Override
-                public void setCallbackFunction(String callbackType, String callbackFunction) {
-                }
-
-                @Override
-                public void notifyCallback(EnumCallback message, Object[] data) {
-                    if(data.length > 0 && data[1] instanceof Integer){
-                        if((Integer)data[4] < 0){
-                            System.out.println("Orientation changed");
-                        }
-                    }
-                }
-
-                @Override
-                public boolean notifyEnabled(EnumCallback type) {
-                    return EnumCallback.CLICK == type;
-                }
-            });
-
         }
 
-        public JmolSimpleViewer getViewer() {
+        public JmolViewer getViewer() {
             return viewer;
         }
 
@@ -92,20 +102,31 @@ public class Main {
         }
 
         public void readFile(String file){
-            viewer.evalString("load \"" + file + "\" { 555 555 -1 } ");
+            viewer.evalString("load \"" + file + "\" { 555 555 -1 };");
         }
 
-        public void loadFileFromResource(String name){
-            BufferedReader reader = new BufferedReader(new InputStreamReader(Main.class.getResourceAsStream(name)));
+        public AtomSetCollection loadFile(String name){
+            try {
+                BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(name)));
 
-            Map<String, Object> htParams = new HashMap<>();
-            htParams.put("spaceGroupIndex", -1);
-            htParams.put("lattice", new Point3f(1.0f, 1.0f, 1.0f));
-            htParams.put("packed", true);
+                Map<String, Object> htParams = new HashMap<>();
+                htParams.put("spaceGroupIndex", -1);
+                htParams.put("lattice", new Point3f(1.0f, 1.0f, 1.0f));
+                htParams.put("packed", true);
 
-            AtomSetCollectionReader fileReader = (AtomSetCollectionReader) adapter.getAtomSetCollectionReader(name, null, reader, htParams);
+                AtomSetCollectionReader fileReader = (AtomSetCollectionReader) adapter.getAtomSetCollectionReader(name, null, reader, htParams);
 
-            Object result =  adapter.getAtomSetCollection(fileReader);
+                Object result =  adapter.getAtomSetCollection(fileReader);
+                if(result instanceof AtomSetCollection){
+                    return (AtomSetCollection) result;
+                } else if (result instanceof String) {
+                    throw new IOError(new Error((String)result));
+                } else {
+                    throw new AssertionError("Unhandled read result type");
+                }
+            } catch (FileNotFoundException e){
+                throw new IOError(e);
+            }
         }
 
         @Override
