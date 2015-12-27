@@ -28,7 +28,7 @@ public class JmolPanel extends JPanel {
     }
 
     public void readFile(String file) {
-        viewer.evalString("load \"" + file + "\" {1 1 1};");
+        viewer.evalString("load \"" + file + "\" {1 1 1} PACKED;");
     }
 
     @Override
