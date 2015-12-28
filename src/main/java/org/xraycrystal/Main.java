@@ -25,9 +25,9 @@ public class Main {
 
     private void createPanel(){
         JFrame mainFrame = new JFrame();
-        mainFrame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+        mainFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         JmolPanel jmol = new JmolPanel();
-        diffraction = new DiffractionImage(new Dimension(200, 200));
+        diffraction = new DiffractionImage(new Dimension(300, 300));
 
         GridBagLayout layout = new GridBagLayout();
         mainFrame.setLayout(layout);
@@ -80,7 +80,9 @@ public class Main {
                     int atomCount = viewer.getAtomCount();
                     List<Point3f> atoms = new ArrayList<>(atomCount);
                     for(int i = 0; i < atomCount; ++i){
-                        atoms.add(viewer.getAtomPoint3f(i));
+                        Point3f a = new Point3f(viewer.getAtomPoint3f(i));
+                        a.scale(1e-10f);
+                        atoms.add(a);
                     }
 
                     SwingUtilities.invokeLater(() -> {
@@ -104,7 +106,6 @@ public class Main {
         });
 
         mainFrame.setVisible(true);
-        //jmol.loadFileFromResource("/Quartz.cif");
     }
 
 }

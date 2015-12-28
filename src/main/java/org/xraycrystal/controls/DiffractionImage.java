@@ -1,7 +1,6 @@
 package org.xraycrystal.controls;
 
 import javax.swing.*;
-import javax.vecmath.Point3d;
 import javax.vecmath.Point3f;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -38,45 +37,46 @@ public class DiffractionImage extends JPanel {
 
         int count = atoms.size();
 
-        final double lambda = 1e-10;
-        final double R = 0.1;
-        final double L = 0.1;
+        final float lambda = 0.5e-10f;
+        final float R = 1e-7f;
+        final float L = 3e-7f;
 
-        final double k = 2.0*Math.PI/lambda;
-        final Point3d K = new Point3d(0, 1.0, 0);
+        final float k = 2.0f*(float)Math.PI/lambda;
+        final Point3f K = new Point3f(0.0f, 0.0f, 1.0f);
         K.scale(k);
 
-        double[][] psi = new double[count][2];
+        float[][] psi = new float[count][2];
 
         for(int i = 0; i < count; ++i){
             Point3f a = atoms.get(i);
-            double phase = K.x*a.x + K.y*a.y + K.z*a.z;
-            psi[i][0] = Math.cos(phase);
-            psi[i][1] = Math.sin(phase);
+            float phase = K.x*a.x + K.y*a.y + K.z*a.z;
+            psi[i][0] = (float)Math.cos(phase);
+            psi[i][1] = (float)Math.sin(phase);
         }
 
         System.out.println("Starting main diffraction loop");
 
         for(int x = 0; x < size.width; ++x){
             for(int y = 0; y < size.height; ++y){
-                double[] I = {0.0, 0,0};
+                float[] I = {0.0f, 0,0f};
                 for(int i = 0; i < count; ++i){
                     Point3f a = atoms.get(i);
-                    double rx = ((double) (x-size.width))/(2.0*L) - a.x;
-                    double ry = R - a.y;
-                    double rz = ((double) (y-size.height))/(2.0*L) - a.z;
-                    double phase = k*Math.sqrt(rx*rx + ry*ry + rz*rz);
-                    double cos = Math.cos(phase);
-                    double sin = Math.sin(phase);
+                    float rx = L*(((float)x)/((float)size.width) - 0.5f) - a.x;
+                    float ry = L*(((float)y)/((float)size.height) - 0.5f) - a.y;
+                    float rz = R - a.z;
+                    float phase = k*(float)Math.sqrt(rx*rx + ry*ry + rz*rz);
+                    float cos = (float)Math.cos(phase);
+                    float sin = (float)Math.sin(phase);
                     I[0] +=  psi[i][0]*cos - psi[i][1]*sin;
                     I[1] +=  psi[i][1]*cos + psi[i][0]*sin;
                 }
                 I[0] /= count;
                 I[1] /= count;
 
-                double A = I[0]*I[0]+I[1]*I[1];
-//                int c = (int)(255.0*(1.0 - A));
-                int c = (int)(255.0*A);
+                float A = I[0]*I[0]+I[1]*I[1];
+                A = A > 1.0f ? 1.0f : A;
+                int c = (int)(255.0*(1.0 - A));
+//                int c = (int)(255.0*A);
                 img.setRGB(x, y, 0xff000000 | c<<16 | c<<8 | c);
             }
         }
