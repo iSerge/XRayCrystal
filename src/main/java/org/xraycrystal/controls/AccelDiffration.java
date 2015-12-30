@@ -193,7 +193,7 @@ public class AccelDiffration implements GLEventListener {
         return status.get(0);
     }
 
-    private int programStatus(GL3 gl, int program, int param)
+    private static int programStatus(GL3 gl, int program, int param)
     {
         IntBuffer status = IntBuffer.allocate(1);
 
@@ -245,6 +245,10 @@ public class AccelDiffration implements GLEventListener {
         gl.glAttachShader(shaderProg, vShader);
         gl.glAttachShader(shaderProg, fShader);
 
+        gl.glLinkProgram(shaderProg);
+
+        programStatus(gl, shaderProg, GL3.GL_LINK_STATUS);
+
         //Initialising OpenCL
         CLDevice[] devices = CLPlatform.getDefault(CLPlatformFilters.glSharing()).listCLDevices(CLDeviceFilters.glSharing());
         for(CLDevice d : devices){
@@ -265,5 +269,12 @@ public class AccelDiffration implements GLEventListener {
     }
 
     public void dispose(GLAutoDrawable arg0) {
+        GL3 gl = arg0.getGL().getGL3();
+
+        if(0 != shaderProg){
+            gl.glDeleteProgram(shaderProg);
+            gl.glDeleteShader(vShader);
+            gl.glDeleteShader(fShader);
+        }
     }
 }
