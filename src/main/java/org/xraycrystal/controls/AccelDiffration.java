@@ -11,7 +11,6 @@ import com.jogamp.opengl.awt.GLCanvas;
 import org.jetbrains.annotations.NotNull;
 import org.xraycrystal.Main;
 
-import javax.swing.*;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -339,6 +338,8 @@ public class AccelDiffration implements GLEventListener {
 
     public void reshape(GLAutoDrawable gLDrawable, int x,
                         int y, int width, int height) {
+        GL3 gl = gLDrawable.getGL().getGL3();
+        gl.glViewport(0, 0, width, height);
     }
 
     public void dispose(GLAutoDrawable arg0) {

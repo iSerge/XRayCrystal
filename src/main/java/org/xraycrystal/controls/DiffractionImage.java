@@ -4,7 +4,6 @@ import javax.swing.*;
 import javax.vecmath.Point3f;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.util.List;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -32,10 +31,10 @@ public class DiffractionImage extends JPanel {
         g.drawImage(img, 0, 0, null);
     }
 
-    public void drawDiffraction(List<Point3f> atoms){
+    public void drawDiffraction(float[] atoms){
         BufferedImage img  = new BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_ARGB);
 
-        int count = atoms.size();
+        int count = atoms.length / 4;
 
         final float lambda = 0.5e-10f;
         final float R = 1e-7f;
@@ -48,8 +47,7 @@ public class DiffractionImage extends JPanel {
         float[][] psi = new float[count][2];
 
         for(int i = 0; i < count; ++i){
-            Point3f a = atoms.get(i);
-            float phase = K.x*a.x + K.y*a.y + K.z*a.z;
+            float phase = K.x*atoms[i*4] + K.y*atoms[i*4+1] + K.z*atoms[i*4+2];
             psi[i][0] = (float)Math.cos(phase);
             psi[i][1] = (float)Math.sin(phase);
         }
@@ -60,10 +58,9 @@ public class DiffractionImage extends JPanel {
             for(int y = 0; y < size.height; ++y){
                 float[] I = {0.0f, 0,0f};
                 for(int i = 0; i < count; ++i){
-                    Point3f a = atoms.get(i);
-                    float rx = L*(((float)x)/((float)size.width) - 0.5f) - a.x;
-                    float ry = L*(((float)y)/((float)size.height) - 0.5f) - a.y;
-                    float rz = R - a.z;
+                    float rx = L*(((float)x)/((float)size.width) - 0.5f) - atoms[i*4];
+                    float ry = L*(((float)y)/((float)size.height) - 0.5f) - atoms[i*4+1];
+                    float rz = R - atoms[i*4+2];
                     float phase = k*(float)Math.sqrt(rx*rx + ry*ry + rz*rz);
                     float cos = (float)Math.cos(phase);
                     float sin = (float)Math.sin(phase);
