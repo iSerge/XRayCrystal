@@ -1,139 +1,356 @@
 package org.xraycrystal.controls;
 
-import com.jogamp.opencl.CLContext;
-import com.jogamp.opencl.CLDevice;
-import com.jogamp.opencl.CLPlatform;
+import com.jogamp.opencl.*;
 import com.jogamp.opencl.gl.CLGLContext;
+import com.jogamp.opencl.gl.CLGLTexture2d;
 import com.jogamp.opencl.llb.CL;
 import com.jogamp.opencl.util.CLDeviceFilters;
 import com.jogamp.opencl.util.CLPlatformFilters;
 import com.jogamp.opengl.*;
 import com.jogamp.opengl.awt.GLCanvas;
-import com.jogamp.opengl.glu.GLU;
 import org.jetbrains.annotations.NotNull;
+import org.xraycrystal.Main;
 
 import javax.swing.*;
-import javax.vecmath.Point3f;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.util.List;
 
 public class AccelDiffration implements GLEventListener {
-    private float rotateT = 0.0f;
-    private static final GLU glu = new GLU();
+    private final float lambda = 0.5e-10f;
+    private final float R = 1e-7f;
+    final float L = 3e-7f;
+    final float amp = 1.0f;
 
-    private static String vsSource =
-            "#version 150 core\n" +
-//            "uniform mat4 projectionMatrix;\n" +
-            "in float coordx;\n" +
-            "in float coordy;\n" +
-            "void main() {\n" +
-//            "  gl_Position = projectionMatrix * vec4(coordx, coordy, 0.0, 1.0);\n" +
-            "  gl_Position = vec4(coordx, coordy, 0.0, 1.0);\n" +
-            "}\n";
+    private float[] projection_matrix = new float[]{
+            1.0f, 0.0f, 0.0f, 0.0f,
+            0.0f, 1.0f, 0.0f, 0.0f,
+            0.0f, 0.0f, 1.0f, 0.0f,
+            0.0f, 0.0f, 0.0f, 1.0f
+    };
 
-    private static String fsSource =
-            "#version 150 core\n" +
-            "uniform vec4 solidColor;\n" +
-            "out vec4 color;\n" +
-            "void main() {\n" +
-            "  color = solidColor;\n" +
-            "}\n";
 
     int shaderProg;
     int vShader;
     int fShader;
+    int patchVAO;
+    int vertexData;
+    int positionAttr;
+    int textureCoordAttr;
+    int textureId;
+
+    private CLCommandQueue commandQueue;
+
+    CLKernel prepareLatticeKernel;
+    CLKernel initPhaseKernel;
+    CLKernel diffractionKernel;
+
+    int atomGlobalWorkSize;
+    int atomLocalWorkSize;
+
+    int diffractionGlobalSize;
+    int diffractionLocalSize;
+
+    CLGLTexture2d<?> img;
+    int atomCount;
+    CLBuffer<FloatBuffer> transformMatrix;
+    CLBuffer<FloatBuffer> origAtoms;
+    CLBuffer<FloatBuffer> transAtoms;
+    CLBuffer<FloatBuffer> psi;
 
 
     @NotNull private GLCanvas canvas;
-    private CLContext context;
+    private CLGLContext context;
+    private CLDevice device;
 
     private boolean needTransformAtoms = false;
     private boolean needUpdateDiffraction = false;
-    private boolean needUpdateImage = false;
 
     public AccelDiffration(@NotNull GLCanvas canvas){
         this.canvas = canvas;
     }
 
-    private void calculate(){
-        Thread worker = new Thread(() -> {
-            if(needTransformAtoms){
-                // TODO transform atoms to view position
+    private void calculate(GL3 gl){
+        gl.glFinish();
 
-                needTransformAtoms = false;
-                needUpdateDiffraction = true;
-            }
-            if(needUpdateDiffraction){
-                // TODO calculate diffraction image
+        long time = System.nanoTime();
 
-                needUpdateDiffraction = false;
-                needUpdateImage = true;
-            }
-            if(needUpdateImage){
-                // TODO convert float image to RGB
-                needUpdateImage = false;
-            }
-            SwingUtilities.invokeLater(canvas::display);
-        });
-        worker.setName("Diffraction computer");
-        worker.start();
+        commandQueue.putAcquireGLObject(img);
+
+        if(needTransformAtoms){
+            commandQueue.put1DRangeKernel(prepareLatticeKernel, 0, atomGlobalWorkSize, atomLocalWorkSize);
+            needTransformAtoms = false;
+            needUpdateDiffraction = true;
+        }
+        if(needUpdateDiffraction){
+            commandQueue.put1DRangeKernel(initPhaseKernel, 0, atomGlobalWorkSize, atomLocalWorkSize);
+            commandQueue.put2DRangeKernel(diffractionKernel, 0, 0,
+                    diffractionGlobalSize, diffractionGlobalSize,
+                    diffractionLocalSize, diffractionLocalSize);
+            needUpdateDiffraction = false;
+        }
+
+        commandQueue.putReleaseGLObject(img);
+
+        commandQueue.finish();
+
+        System.out.println(String.format("Finished diffraction calc in %f seconds",
+                (float)(System.nanoTime() - time)*1e-9f));
     }
 
-    public void setAtoms(List<Point3f> atoms){
+    public void setAtoms(float[] atoms){
+        if(atoms.length%4 != 0){
+            throw new AssertionError("Atoms array length must be multiple of 4");
+        }
+
+        clLoadAtoms(atoms);
+
         needTransformAtoms = true;
-        calculate();
+
+        canvas.display();
+    }
+
+    private void clLoadAtoms(float[] atoms) {
+        atomCount = atoms.length / 4;
+
+        if(null != origAtoms){
+            origAtoms.release();
+        }
+        origAtoms = context.createFloatBuffer(atoms.length, CLMemory.Mem.READ_ONLY);
+        origAtoms.getBuffer().put(atoms);
+        commandQueue.putWriteBuffer(origAtoms, false);
+
+        if(null != transAtoms){
+            transAtoms.release();
+        }
+
+        transAtoms = context.createFloatBuffer(atoms.length, CLMemory.Mem.READ_WRITE);
+
+        if(null != psi){
+            psi.release();
+        }
+        psi = context.createFloatBuffer(atomCount*2, CLMemory.Mem.READ_WRITE);
+
+        prepareLatticeKernel.setArg(0, origAtoms);
+        prepareLatticeKernel.setArg(1, transAtoms);
+        prepareLatticeKernel.setArg(3, atomCount);
+
+        initPhaseKernel.setArg(0, transAtoms);
+        initPhaseKernel.setArg(1, psi);
+        initPhaseKernel.setArg(2, atomCount);
+
+        diffractionKernel.setArg(0, transAtoms);
+        diffractionKernel.setArg(1, psi);
+        diffractionKernel.setArg(3, atomCount);
+
+        atomLocalWorkSize = Math.min(device.getMaxWorkGroupSize(), 256);
+        atomGlobalWorkSize = roundUp(atomLocalWorkSize, atomCount);
+
+        commandQueue.finish();
     }
 
     public void display(GLAutoDrawable gLDrawable) {
         final GL3 gl = gLDrawable.getGL().getGL3();
-        gl.glClear(GL.GL_COLOR_BUFFER_BIT);
-        gl.glClear(GL.GL_DEPTH_BUFFER_BIT);
-        gl.glLoadIdentity();
-        gl.glTranslatef(0.0f, 0.0f, -5.0f);
 
-        gl.glRotatef(rotateT, 1.0f, 0.0f, 0.0f);
-        gl.glRotatef(rotateT, 0.0f, 1.0f, 0.0f);
-        gl.glRotatef(rotateT, 0.0f, 0.0f, 1.0f);
-        gl.glRotatef(rotateT, 0.0f, 1.0f, 0.0f);
+        calculate(gl);
 
-        gl.glBegin(GL2.GL_TRIANGLES);
+        gl.glClear(GL.GL_COLOR_BUFFER_BIT | GL.GL_DEPTH_BUFFER_BIT);
 
-        // Front
-        gl.glColor3f(0.0f, 1.0f, 1.0f);
-        gl.glVertex3f(0.0f, 1.0f, 0.0f);
-        gl.glColor3f(0.0f, 0.0f, 1.0f);
-        gl.glVertex3f(-1.0f, -1.0f, 1.0f);
-        gl.glColor3f(0.0f, 0.0f, 0.0f);
-        gl.glVertex3f(1.0f, -1.0f, 1.0f);
+        gl.glUseProgram(shaderProg);
 
-        // Right Side Facing Front
-        gl.glColor3f(0.0f, 1.0f, 1.0f);
-        gl.glVertex3f(0.0f, 1.0f, 0.0f);
-        gl.glColor3f(0.0f, 0.0f, 1.0f);
-        gl.glVertex3f(1.0f, -1.0f, 1.0f);
-        gl.glColor3f(0.0f, 0.0f, 0.0f);
-        gl.glVertex3f(0.0f, -1.0f, -1.0f);
+        gl.glActiveTexture(GL3.GL_TEXTURE0);
+        gl.glBindTexture(GL3.GL_TEXTURE_2D, textureId);
 
-        // Left Side Facing Front
-        gl.glColor3f(0.0f, 1.0f, 1.0f);
-        gl.glVertex3f(0.0f, 1.0f, 0.0f);
-        gl.glColor3f(0.0f, 0.0f, 1.0f);
-        gl.glVertex3f(0.0f, -1.0f, -1.0f);
-        gl.glColor3f(0.0f, 0.0f, 0.0f);
-        gl.glVertex3f(-1.0f, -1.0f, 1.0f);
+        gl.glBindVertexArray(patchVAO);
 
-        // Bottom
-        gl.glColor3f(0.0f, 0.0f, 0.0f);
-        gl.glVertex3f(-1.0f, -1.0f, 1.0f);
-        gl.glColor3f(0.1f, 0.1f, 0.1f);
-        gl.glVertex3f(1.0f, -1.0f, 1.0f);
-        gl.glColor3f(0.2f, 0.2f, 0.2f);
-        gl.glVertex3f(0.0f, -1.0f, -1.0f);
+        int projectionLocation = gl.glGetUniformLocation(shaderProg, "P");
+        gl.glUniformMatrix4fv(projectionLocation, 1, false, FloatBuffer.wrap(projection_matrix));
 
-        gl.glEnd();
+        int samplerLocation = gl.glGetUniformLocation(shaderProg, "texture_diffuse");
+        gl.glUniform1i(samplerLocation, 0);
 
-        rotateT += 0.2f;
+
+        gl.glDrawArrays(GL2.GL_TRIANGLE_FAN, 0, 4);
+
+        gl.glUseProgram(0);
+    }
+
+    public void init(GLAutoDrawable gLDrawable) {
+        gLDrawable.setGL(new DebugGL3(gLDrawable.getGL().getGL3()));
+
+        final GL3 gl = gLDrawable.getGL().getGL3();
+        gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        gl.glClearDepth(1.0f);
+        gl.glDisable   (GL2.GL_DEPTH_TEST);
+        gl.glPixelStorei(GL2.GL_UNPACK_ALIGNMENT, 1);
+
+        vShader = gl.glCreateShader(GL3.GL_VERTEX_SHADER);
+        fShader = gl.glCreateShader(GL3.GL_FRAGMENT_SHADER);
+
+        String vsSource = readResource("/org/xraycrystal/vertex.shader");
+        IntBuffer length = IntBuffer.allocate(1);
+        length.put(0, vsSource.length());
+
+        gl.glShaderSource(vShader, 1, new String[] {vsSource}, length);
+        gl.glCompileShader(vShader);
+        shaderStatus(gl, vShader, GL3.GL_COMPILE_STATUS);
+
+        String fsSource = readResource("/org/xraycrystal/fragment.shader");
+        length.put(0, fsSource.length());
+
+        gl.glShaderSource(fShader, 1, new String[] {fsSource}, length);
+        gl.glCompileShader(fShader);
+        shaderStatus(gl, fShader, GL3.GL_COMPILE_STATUS);
+
+        shaderProg = gl.glCreateProgram();
+        gl.glAttachShader(shaderProg, vShader);
+        gl.glAttachShader(shaderProg, fShader);
+
+        gl.glLinkProgram(shaderProg);
+        programStatus(gl, shaderProg, GL3.GL_LINK_STATUS);
+        gl.glValidateProgram(shaderProg);
+        programStatus(gl, shaderProg, GL3.GL_VALIDATE_STATUS);
+
+        gl.glUseProgram(shaderProg);
+
+        positionAttr = gl.glGetAttribLocation(shaderProg, "in_Position");
+        textureCoordAttr = gl.glGetAttribLocation(shaderProg, "in_TextureCoord");
+
+        IntBuffer vaoId = IntBuffer.allocate(1);
+        gl.glGenVertexArrays(1,vaoId);
+        patchVAO = vaoId.get(0);
+
+        IntBuffer vboIds = IntBuffer.allocate(2);
+        gl.glGenBuffers(1, vboIds);
+        vertexData = vboIds.get(0);
+
+        gl.glBindBuffer(GL3.GL_ARRAY_BUFFER, vertexData);
+        float d = Main.IMAGE_DIM;
+        FloatBuffer vData = FloatBuffer.wrap(new float[] {
+                0f, 0f, 0f, 1f, 0f, 0f,
+                d,  0f, 0f, 1f, 1f, 0f,
+                d,   d, 0f, 1f, 1f, 1f,
+                0f,  d, 0f, 1f, 0f, 1f
+        });
+        gl.glBufferData(GL3.GL_ARRAY_BUFFER, vData.capacity()*4, vData, GL.GL_STATIC_DRAW);
+
+        gl.glBindVertexArray(patchVAO);
+
+        gl.glVertexAttribPointer(positionAttr, 4, GL3.GL_FLOAT, false, 4, 0);
+        gl.glEnableVertexAttribArray(positionAttr);
+        gl.glVertexAttribPointer(textureCoordAttr, 4, GL3.GL_FLOAT, false, 4, 4);
+        gl.glEnableVertexAttribArray(textureCoordAttr);
+
+        float tx = (diffractionGlobalSize+0.0f) /(diffractionGlobalSize-0.0f);
+        float ty = (0.0f+diffractionGlobalSize)/(0.0f-diffractionGlobalSize);
+        float tz = (0.0f+1.0f)  /(1.0f-0.0f);
+        projection_matrix[ 0] =  2.0f/(diffractionGlobalSize-0.0f);
+        projection_matrix[ 5] =  2.0f/(0.0f-diffractionGlobalSize);
+        projection_matrix[10] = -2.0f/(1.0f-0.0f);
+        projection_matrix[12] = -tx;
+        projection_matrix[13] = -ty;
+        projection_matrix[14] = -tz;
+
+        int projectionLocation = gl.glGetUniformLocation(shaderProg, "P");
+        gl.glUniformMatrix4fv(projectionLocation, 1, false, FloatBuffer.wrap(projection_matrix));
+
+
+//        gl.glBindBuffer(GL3.GL_ARRAY_BUFFER, 0);
+        gl.glBindVertexArray(0);
+
+        //Initialising OpenCL
+        CLDevice[] devices = CLPlatform.getDefault(CLPlatformFilters.glSharing()).listCLDevices(CLDeviceFilters.glSharing());
+        for(CLDevice dev : devices){
+            System.out.println("Got OpenCL device: " + dev.getName());
+        }
+
+        if(devices.length == 0){
+            throw new AssertionError("Failed to get CL/GL sharing device");
+        }
+
+        context = CLGLContext.create(gl.getContext(), devices);
+
+        device = context.getMaxFlopsDevice();
+        System.out.println("Selected OpenCL device: " + device.getName());
+
+        commandQueue = device.createCommandQueue();
+
+        System.out.println("Device max workgroup size is: " + device.getMaxWorkGroupSize());
+
+        diffractionLocalSize = Math.min((int)Math.sqrt((float)device.getMaxWorkGroupSize()), 16);
+        diffractionGlobalSize = roundUp(diffractionLocalSize, Main.IMAGE_DIM);
+
+        String diffractionProgram = readResource("/org/xraycrystal/diffraction.cl");
+
+        CLProgram prog = context.createProgram(diffractionProgram);
+        prog.build();
+
+        prepareLatticeKernel = prog.createCLKernel("prepareLattice");
+        initPhaseKernel = prog.createCLKernel("initPhase");
+        diffractionKernel = prog.createCLKernel("diffraction");
+
+        transformMatrix = context.createFloatBuffer(9, CLMemory.Mem.READ_ONLY);
+        transformMatrix.getBuffer().put(new float[] {1f, 0f, 0f,
+                                                     0f, 1f, 0f,
+                                                     0f, 0f, 1f});
+        commandQueue.putWriteBuffer(transformMatrix, true);
+
+        System.out.println("kernel workgroup size: " + prepareLatticeKernel.getWorkGroupSize(device));
+        prepareLatticeKernel.setArg(2, transformMatrix);
+
+        initPhaseKernel.setArg(3, lambda);
+
+        int[] texArray = new int[1];
+        gl.glGenTextures(1, texArray, 0);
+        textureId = texArray[0];
+
+        gl.glActiveTexture(GL2.GL_TEXTURE0);
+        gl.glBindTexture  (GL2.GL_TEXTURE_2D, textureId);
+        gl.glUniform1i    (gl.glGetUniformLocation(shaderProg, "texture_diffuse"), 0);
+
+        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MAG_FILTER, GL2.GL_LINEAR);
+        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_MIN_FILTER, GL2.GL_LINEAR);
+        // texture wrap mode
+        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_S,
+                GL2.GL_CLAMP_TO_EDGE);
+        gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T,
+                GL2.GL_CLAMP_TO_EDGE);
+        // set image size only
+        gl.glTexImage2D   (GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA, diffractionGlobalSize, diffractionGlobalSize, 0,
+                GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, null);
+        gl.glBindTexture  (GL2.GL_TEXTURE_2D, 0);
+
+        gl.glUseProgram(0);
+
+        img = context.createFromGLTexture2d(GL3.GL_TEXTURE_2D, textureId, 0, CL.CL_MEM_WRITE_ONLY);
+
+        diffractionKernel.setArg(2, img);
+        diffractionKernel.setArg(4, lambda);
+        diffractionKernel.setArg(5, R);
+        diffractionKernel.setArg(6, L);
+        diffractionKernel.setArg(7, amp);
+        diffractionKernel.setArg(8, 0);
+
+        clLoadAtoms(new float[] {0f, 0f, 0f, 1f});
+    }
+
+    public void reshape(GLAutoDrawable gLDrawable, int x,
+                        int y, int width, int height) {
+    }
+
+    public void dispose(GLAutoDrawable arg0) {
+        GL3 gl = arg0.getGL().getGL3();
+
+        context.release();
+
+        if(0 != shaderProg){
+            gl.glDeleteProgram(shaderProg);
+            gl.glDeleteShader(vShader);
+            gl.glDeleteShader(fShader);
+        }
     }
 
     private static String getGLErrorString(int error){
@@ -174,12 +391,12 @@ public class AccelDiffration implements GLEventListener {
         IntBuffer status = IntBuffer.allocate(1);
 
         gl.glGetShaderiv(shader, param, status);
-        checkOpenGLerror(gl, "ShaderStatus.glGetProgramiv");
+        checkOpenGLerror(gl, "ShaderStatus.glGetShaderiv");
 
         if (status.get(0) != GL3.GL_TRUE){
             IntBuffer infologLen = IntBuffer.allocate(1);
             gl.glGetShaderiv(shader, GL3.GL_INFO_LOG_LENGTH, infologLen);
-            checkOpenGLerror(gl, "ShaderStatus.glGetProgramiv");
+            checkOpenGLerror(gl, "ShaderStatus.glGetShaderiv");
             if(infologLen.get(0) > 1){
                 ByteBuffer infoLog = ByteBuffer.allocate(infologLen.get(0));
                 IntBuffer charsWritten = IntBuffer.allocate(1);
@@ -217,64 +434,39 @@ public class AccelDiffration implements GLEventListener {
         return status.get(0);
     }
 
-    public void init(GLAutoDrawable gLDrawable) {
-        final GL3 gl = gLDrawable.getGL().getGL3();
-        gl.glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-        gl.glClearDepth(1.0f);
-        gl.glEnable(GL.GL_DEPTH_TEST);
-        gl.glDepthFunc(GL.GL_LEQUAL);
-        gl.glHint(GL2.GL_PERSPECTIVE_CORRECTION_HINT, GL.GL_NICEST);
 
-        vShader = gl.glCreateShader(GL3.GL_VERTEX_SHADER);
-        fShader = gl.glCreateShader(GL3.GL_FRAGMENT_SHADER);
-
-        IntBuffer length = IntBuffer.allocate(1);
-        length.put(0, vsSource.length());
-
-        gl.glShaderSource(vShader, 1, new String[] {vsSource}, length);
-        gl.glCompileShader(vShader);
-        shaderStatus(gl, vShader, GL3.GL_COMPILE_STATUS);
-
-        length.put(0, fsSource.length());
-
-        gl.glShaderSource(fShader, 1, new String[] {fsSource}, length);
-        gl.glCompileShader(fShader);
-        shaderStatus(gl, fShader, GL3.GL_COMPILE_STATUS);
-
-        shaderProg = gl.glCreateProgram();
-        gl.glAttachShader(shaderProg, vShader);
-        gl.glAttachShader(shaderProg, fShader);
-
-        gl.glLinkProgram(shaderProg);
-
-        programStatus(gl, shaderProg, GL3.GL_LINK_STATUS);
-
-        //Initialising OpenCL
-        CLDevice[] devices = CLPlatform.getDefault(CLPlatformFilters.glSharing()).listCLDevices(CLDeviceFilters.glSharing());
-        for(CLDevice d : devices){
-            System.out.println("Got OpenCL device: " + d.getName());
+    @NotNull
+    private String readResource(String fileName)
+    {
+        try(BufferedReader br = new BufferedReader(
+                new InputStreamReader(AccelDiffration.class.getResourceAsStream(fileName))))
+        {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while (true)
+            {
+                line = br.readLine();
+                if (line == null)
+                {
+                    break;
+                }
+                sb.append(line).append("\n");
+            }
+            br.close();
+            return sb.toString();
         }
-
-        if(devices.length == 0){
-            throw new AssertionError("Failed to get CL/GL sharing device");
+        catch (IOException e)
+        {
+            throw new AssertionError("Can't find resource: " + fileName);
         }
-
-        context = CLGLContext.create(gl.getContext(), devices[0]);
-        final CL cl =context.getCL();
-//        cl.createImage
     }
 
-    public void reshape(GLAutoDrawable gLDrawable, int x,
-                        int y, int width, int height) {
-    }
-
-    public void dispose(GLAutoDrawable arg0) {
-        GL3 gl = arg0.getGL().getGL3();
-
-        if(0 != shaderProg){
-            gl.glDeleteProgram(shaderProg);
-            gl.glDeleteShader(vShader);
-            gl.glDeleteShader(fShader);
+    private static int roundUp(int groupSize, int globalSize) {
+        int r = globalSize % groupSize;
+        if (r == 0) {
+            return globalSize;
+        } else {
+            return globalSize + groupSize - r;
         }
     }
 }

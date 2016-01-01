@@ -14,8 +14,6 @@ import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.io.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public class Main {
     public static int IMAGE_DIM = 512;
@@ -24,6 +22,8 @@ public class Main {
     AccelDiffration renderer;
 
     public static void main(String[] args) throws Exception {
+        GLProfile.initSingleton();
+
         Main main = new Main();
 
         SwingUtilities.invokeLater(main::createPanel);
@@ -90,11 +90,14 @@ public class Main {
                 } else if(EnumCallback.LOADSTRUCT == message){
                     JmolViewer viewer = jmol.getViewer();
                     int atomCount = viewer.getAtomCount();
-                    List<Point3f> atoms = new ArrayList<>(atomCount);
+                    float[] atoms = new float[atomCount*4];
                     for(int i = 0; i < atomCount; ++i){
                         Point3f a = new Point3f(viewer.getAtomPoint3f(i));
                         a.scale(1e-10f);
-                        atoms.add(a);
+                        atoms[i*4] = a.x;
+                        atoms[i*4+1] = a.y;
+                        atoms[i*4+2] = a.z;
+                        atoms[i*4+3] = 1.0f;
                     }
 
                     renderer.setAtoms(atoms);
