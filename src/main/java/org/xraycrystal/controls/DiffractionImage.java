@@ -56,7 +56,7 @@ public class DiffractionImage extends JPanel {
 
         for(int x = 0; x < size.width; ++x){
             for(int y = 0; y < size.height; ++y){
-                float[] I = {0.0f, 0,0f};
+                float[] I = {0.0f, 0.0f};
                 float Lx = L*(((float)x)/((float)size.width) - 0.5f);
                 float Ly = L*(((float)y)/((float)size.height) - 0.5f);
                 for(int i = 0; i < count; ++i){
