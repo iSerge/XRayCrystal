@@ -33,11 +33,11 @@ public class DemoViewer implements GLEventListener
     private boolean GL_INTEROP   = true; // switch for CL-GL transfers
 
     private final float lambda = 0.5e-10f;
-    private final float R = 1e-5f;
-    private final float L = 3e-5f;
-    private final float amp = 1f;
-    private final int phase = 1;
-    private final double w = 0.00000001;
+    private final float R = 1e-7f;
+    private final float L = 3e-7f;
+    private final float amp = 2f;
+    private final int phase = 0;
+    private final double w = 0.5;
     private double angle = 0.0;
 
     private float[] identity_matrix = new float[]{
@@ -88,6 +88,7 @@ public class DemoViewer implements GLEventListener
     private CLImage2d<ByteBuffer> texBuffer;
 
     private float[] atoms = {
+//            0f,0f,0f,1f
                 2.307707f,    0.000000f,    3.601333f, 1f, //Si
                -0.148293f,    4.253917f,    3.601333f, 1f, //Si
                -1.153853f,    1.998533f,    1.800667f, 1f, //Si
@@ -383,6 +384,12 @@ public class DemoViewer implements GLEventListener
         System.out.println(diffractionProg.getBuildLog());
 
         commandQueue = device.createCommandQueue();
+
+        for(int i = 0; i < atomCount; ++i){
+            atoms[i*4] *= 1e-10;
+            atoms[i*4+1] *= 1e-10;
+            atoms[i*4+2] *= 1e-10;
+        }
 
         origAtoms = clContext.createFloatBuffer(atomCount*4, CLMemory.Mem.READ_ONLY);
         origAtoms.getBuffer().put(atoms).rewind();

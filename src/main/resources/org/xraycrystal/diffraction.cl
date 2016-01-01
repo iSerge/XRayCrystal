@@ -39,24 +39,22 @@ kernel void diffraction(global float4* atoms,  global float2* psi, write_only im
     const float k = _2PI / lambda;
 
     float2 I = (float2)(0.0f, 0.0f);
+//    I.x = 0.0f;
+//    I.y = 0.0f;
 
     float Lx = L*(x/width - 0.5f);
     float Ly = L*(y/height - 0.5f);
 
     for(size_t i = 0; i < n; ++i){
         float3 atom = (float3)(atoms[i].x, atoms[i].y, atoms[i].z);
-
-        float rx = Lx - atom.x;
-        float ry = Ly - atom.y;
-        float rz = R - atom.z;
-        float phase = fmod(k*sqrt(rx*rx+ry*ry+rz*rz), _2PI);
+        float r = distance((float3)(Lx,Ly,R), atom);
+        float phase = fmod(k*r, _2PI);
 
         float c;
         float s = sincos(phase, &c);
-        I.x +=  psi[i].x*c - psi[i].y*s;
-        I.y +=  psi[i].y*c + psi[i].x*s;
+        I.s0 +=  psi[i].x*c - psi[i].y*s;
+        I.s1 +=  psi[i].y*c + psi[i].x*s;
     }
-
     I /= n;
 
     float v;
@@ -64,14 +62,15 @@ kernel void diffraction(global float4* atoms,  global float2* psi, write_only im
     if(phase){
         v = atan(I.y/I.x);
     } else {
-        v = amp*(I.x*I.x+I.y*I.y);
+        v = amp*(I.x*I.x + I.y*I.y);
+        v = 1.0f - clamp(v, 0.0f, 1.0f);
     }
 
     float4 color;
 
     if(phase){
-        color = (float4)(sin(v), sin(v + 2*PI/3), sin(v + 4*PI/3), 1.0f);
-            color = color*color;
+        color = (float4)(sin(v), sin(v + _2PI/3), sin(v + 4*PI/3), 1.0f);
+        color = color*color;
     } else {
         color = (float4)(v, v, v, 1.0f);
     }
