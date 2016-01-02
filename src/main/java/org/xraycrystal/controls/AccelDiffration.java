@@ -9,7 +9,7 @@ import com.jogamp.opencl.util.CLPlatformFilters;
 import com.jogamp.opengl.*;
 import com.jogamp.opengl.awt.GLCanvas;
 import org.jetbrains.annotations.NotNull;
-import org.xraycrystal.Main;
+import org.xraycrystal.JmolJava;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -227,7 +227,7 @@ public class AccelDiffration implements GLEventListener {
         vertexData = vboIds.get(0);
 
         gl.glBindBuffer(GL3.GL_ARRAY_BUFFER, vertexData);
-        float d = Main.IMAGE_DIM;
+        float d = JmolJava.IMAGE_DIM;
         FloatBuffer vData = FloatBuffer.wrap(new float[] {
                 0f, 0f, 0f, 1f, 0f, 0f,
                 d,  0f, 0f, 1f, 1f, 0f,
@@ -280,7 +280,7 @@ public class AccelDiffration implements GLEventListener {
         System.out.println("Device max workgroup size is: " + device.getMaxWorkGroupSize());
 
         diffractionLocalSize = Math.min((int)Math.sqrt((float)device.getMaxWorkGroupSize()), 16);
-        diffractionGlobalSize = roundUp(diffractionLocalSize, Main.IMAGE_DIM);
+        diffractionGlobalSize = roundUp(diffractionLocalSize, JmolJava.IMAGE_DIM);
 
         String diffractionProgram = readResource("/org/xraycrystal/diffraction.cl");
 

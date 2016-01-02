@@ -1,11 +1,7 @@
 package org.xraycrystal;
 
-import com.jogamp.opengl.GLCapabilities;
-import com.jogamp.opengl.GLProfile;
-import com.jogamp.opengl.awt.GLCanvas;
 import org.jmol.api.*;
 import org.jmol.constant.EnumCallback;
-import org.xraycrystal.controls.AccelDiffration;
 import org.xraycrystal.controls.DiffractionImage;
 import org.xraycrystal.controls.JmolPanel;
 
@@ -16,19 +12,15 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.io.*;
 
-public class Main {
+public class JmolJava {
     public static int IMAGE_DIM = 512;
 
-//    GLCanvas image;
     DiffractionImage image;
-    AccelDiffration renderer;
 
     public static void main(String[] args) throws Exception {
-        GLProfile.initSingleton();
+        JmolJava jmolJava = new JmolJava();
 
-        Main main = new Main();
-
-        SwingUtilities.invokeLater(main::createPanel);
+        SwingUtilities.invokeLater(jmolJava::createPanel);
     }
 
     private void createPanel(){
@@ -36,13 +28,7 @@ public class Main {
         mainFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         JmolPanel jmol = new JmolPanel();
 
-        GLProfile glprofile = GLProfile.get(GLProfile.GL3);
-        GLCapabilities glcapabilities = new GLCapabilities( glprofile );
-//        image = new GLCanvas(glcapabilities);
-//        renderer = new AccelDiffration(image);
-//        image.addGLEventListener(renderer);
         image = new DiffractionImage(new Dimension(IMAGE_DIM, IMAGE_DIM));
-        //image.setPreferredSize(new Dimension(IMAGE_DIM, IMAGE_DIM));
 
         GridBagLayout layout = new GridBagLayout();
         mainFrame.setLayout(layout);
@@ -103,7 +89,6 @@ public class Main {
                         atoms[i*4+3] = 1.0f;
                     }
 
-//                    renderer.setAtoms(atoms);
                     image.drawDiffraction(atoms);
                 } else {
                     System.out.println("CallbackNotify: " + message);
@@ -117,7 +102,6 @@ public class Main {
         });
 
         mainFrame.setVisible(true);
-//        image.display();
     }
 
 }
