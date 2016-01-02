@@ -1,19 +1,13 @@
 #version 330 core
 
-uniform sampler2D texture_diffuse;
-uniform mat4 P;
+uniform mat4      M, P;
 
-in vec4 in_Position;
-//in vec4 in_Color;
-in vec2 in_TextureCoord;
+in  vec2 texcoord;
+in  vec2 vertex;
 
-//out vec4 pass_Color;
-out vec2 pass_TextureCoord;
+out vec2 out_texcoord;
 
-void main(void) {
-    gl_Position = P*in_Position;
-//    gl_Position = in_Position;
-
-//    pass_Color = in_Color;
-    pass_TextureCoord = in_TextureCoord;
+void main(void){
+   out_texcoord = texcoord;
+   gl_Position  = P*(M*vec4(vertex.x, vertex.y, 0.0, 1.0));
 }

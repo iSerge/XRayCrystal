@@ -1,7 +1,9 @@
 #define  PI 3.14159265359f
 #define _2PI 6.28318530718f
 
-kernel void prepareLattice(global float4* aIn,  global float4* aOut, global float* matrix, const unsigned int n){
+kernel void prepareLattice(global float4* aIn,  global float4* aOut, global float* matrix, const unsigned int n,
+                            const float dx, const float dy, const float dz)
+{
     size_t i = get_global_id(0);
 
     if(i < n){

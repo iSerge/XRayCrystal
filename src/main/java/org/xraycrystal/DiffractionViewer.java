@@ -77,8 +77,6 @@ public class DiffractionViewer implements GLEventListener
     private CLGLContext clContext2; // only used if GL_INTEROP==true
     private CLContext   clContext;  // always used; (clContext2 == clContext) iff GL_INTEROP==true
 
-    private CLKernel       kernel;
-
     private CLKernel atomTransformKernel;
     private CLKernel initPhaseKernel;
     private CLKernel diffractionKernel;
@@ -275,26 +273,8 @@ public class DiffractionViewer implements GLEventListener
         int vertID = gl.glCreateShader(GL2.GL_VERTEX_SHADER);
         int fragID = gl.glCreateShader(GL2.GL_FRAGMENT_SHADER);
 
-        String sourceVS = "#version 330\n" +
-                "uniform sampler2D tex; \n" +
-                "uniform mat4      M, P;\n" +
-                "in  vec2 texcoord;     \n" +
-                "in  vec2 vertex;       \n" +
-                "out vec2 out_texcoord; \n" +
-                "void main(void)        \n" +
-                "{\n" +
-                "   out_texcoord = texcoord;                                \n" +
-                "   gl_Position  = P*(M*vec4(vertex.x, vertex.y, 0.0, 1.0));\n" +
-                "}";
-        String sourceFS = "#version 330\n" +
-                "uniform sampler2D tex;  \n" +
-                "uniform mat4      M, P; \n" +
-                "in  vec2 out_texcoord;  \n" +
-                "out vec4 out_color;     \n" +
-                "void main (void)        \n" +
-                "{                       \n" +
-                "   out_color = texture(tex, out_texcoord); \n" +
-                "}";
+        String sourceVS = readResource("/org/xraycrystal/vertex.shader");
+        String sourceFS = readResource("/org/xraycrystal/fragment.shader");
 
         String[] vs = { sourceVS };
         String[] fs = { sourceFS };
@@ -375,32 +355,6 @@ public class DiffractionViewer implements GLEventListener
         // ensure pipeline is clean before doing cl work
         gl.glFinish();
 
-        String sourceCL = "__kernel void function (__write_only image2d_t store, unsigned w, unsigned h ) \n" +
-                "{ \n" +
-                "    unsigned  x = get_global_id(0); \n" +
-                "    float     aspect = h/(float)w;  \n" +
-                "    int2 ic;      \n" +
-                "    ic.s0 = x;    \n" +
-                "    float4  color; \n" +
-                "    color.s0 = color.s2 = 0.0f; \n" +
-                "    color.s1 = 0.5f; \n" +
-                "    color.s3 = 1.0f;                     \n" +
-                "    // clear image                      \n" +
-                "    for (int y=0; y<h; ++y) {           \n" +
-                "       ic.s1 = y/aspect;                \n" +
-                "       write_imagef(store, ic, color); \n" +
-                "    }                                   \n" +
-                "    // set red pixel on diagonal (no anti-aliasing) \n" +
-                "    color.s0 = 1.0f;        \n" +
-                "    ic.s1    = x*aspect;   \n" +
-                "    write_imagef(store, ic, color);  \n" +
-                "}";
-        CLProgram program = clContext.createProgram(sourceCL);
-        program.build();
-        System.out.println(program.getBuildStatus());
-        System.out.println(program.isExecutable());
-        System.out.println(program.getBuildLog());
-
         String diffractionProgram = readResource("/org/xraycrystal/diffraction.cl");
         CLProgram diffractionProg = clContext.createProgram(diffractionProgram);
         diffractionProg.build();
@@ -434,6 +388,9 @@ public class DiffractionViewer implements GLEventListener
                 .putArg(transAtoms)
                 .putArg(transformMatrix)
                 .putArg(atomCount)
+                .putArg(0.0f)
+                .putArg(0.0f)
+                .putArg(0.0f)
                 .rewind();
 
         initPhaseKernel = diffractionProg.createCLKernel("initPhase")
@@ -448,12 +405,6 @@ public class DiffractionViewer implements GLEventListener
                     texId, 0, CLBuffer.Mem.WRITE_ONLY);
             System.out.println("cl buffer type:        " + texBuffer2.getGLObjectType());
             System.out.println("shared with gl buffer: " + texBuffer2.getGLObjectID());
-
-            kernel = program.createCLKernel("function")
-                    .putArg(texBuffer2)
-                    .putArg(bufferWidth)
-                    .putArg(bufferHeight)
-                    .rewind();
 
             diffractionKernel = diffractionProg.createCLKernel("diffraction")
                     .putArg(transAtoms)
@@ -475,11 +426,6 @@ public class DiffractionViewer implements GLEventListener
                     CLBuffer.Mem.WRITE_ONLY);
 
             System.out.println(String.format("texture-size=%d", texBuffer.getBuffer().capacity()));
-            kernel = program.createCLKernel ("function")
-                    .putArg(texBuffer)
-                    .putArg(bufferWidth)
-                    .putArg(bufferHeight)
-                    .rewind();
 
             diffractionKernel = diffractionProg.createCLKernel("diffraction")
                     .putArg(transAtoms)

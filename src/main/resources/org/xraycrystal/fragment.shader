@@ -1,15 +1,11 @@
 #version 330 core
 
-uniform sampler2D texture_diffuse;
+uniform sampler2D tex;
 
-//in vec4 pass_Color;
-in vec2 pass_TextureCoord;
+in  vec2 out_texcoord;
 
-out vec4 out_Color;
+out vec4 out_color;
 
 void main(void) {
-//    out_Color = pass_Color;
-    // Override out_Color with our texture pixel
-//    out_Color = texture(texture_diffuse, pass_TextureCoord);
-    out_Color = vec4(1.0, 1.0, 1.0, 1.0);
+    out_color = texture(tex, out_texcoord);
 }
