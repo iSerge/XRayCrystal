@@ -2,14 +2,14 @@
 #define _2PI 6.28318530718f
 
 kernel void prepareLattice(global float4* aIn,  global float4* aOut, global float* matrix, const unsigned int n,
-                            const float dx, const float dy, const float dz)
+                            const float centerX, const float centerY, const float centerZ)
 {
     size_t i = get_global_id(0);
 
     if(i < n){
-        aOut[i].x = aIn[i].x*matrix[0] + aIn[i].y*matrix[1] + aIn[i].z*matrix[2];
-        aOut[i].y = aIn[i].x*matrix[3] + aIn[i].y*matrix[4] + aIn[i].z*matrix[5];
-        aOut[i].z = aIn[i].x*matrix[6] + aIn[i].y*matrix[7] + aIn[i].z*matrix[8];
+        aOut[i].x = aIn[i].x*matrix[0] + aIn[i].y*matrix[1] + aIn[i].z*matrix[2] - centerX;
+        aOut[i].y = aIn[i].x*matrix[3] + aIn[i].y*matrix[4] + aIn[i].z*matrix[5] - centerY;
+        aOut[i].z = aIn[i].x*matrix[6] + aIn[i].y*matrix[7] + aIn[i].z*matrix[8] - centerZ;
         aOut[i].s3 = aIn[i].s3;
     }
 }

@@ -38,6 +38,7 @@ public class DiffractionViewer implements GLEventListener
     private float R = 1e-7f;
     private float L = 3e-7f;
     private float amp = 1f;
+
     private int phase = 0;
     private final double w = 0.5;
     private double angle = 0.0;
@@ -102,6 +103,10 @@ public class DiffractionViewer implements GLEventListener
                -1.081131f,    3.115569f,    2.958315f, 1f, //O
                 0.782727f,    3.632419f,    4.758982f, 1f, //O
     };
+
+    private float centerX = 0.0f;
+    private float centerY = 0.0f;
+    private float centerZ = 0.0f;
 
     private int atomCount = atoms.length / 4;
 
@@ -364,11 +369,23 @@ public class DiffractionViewer implements GLEventListener
 
         commandQueue = device.createCommandQueue();
 
+        centerX = 0.0f;
+        centerY = 0.0f;
+        centerZ = 0.0f;
+
         for(int i = 0; i < atomCount; ++i){
             atoms[i*4] *= 1e-10;
             atoms[i*4+1] *= 1e-10;
             atoms[i*4+2] *= 1e-10;
+
+            centerX += atoms[i*4];
+            centerY += atoms[i*4+1];
+            centerZ += atoms[i*4+2];
         }
+
+        centerX /= atomCount;
+        centerY /= atomCount;
+        centerZ /= atomCount;
 
         origAtoms = clContext.createFloatBuffer(atomCount*4, CLMemory.Mem.READ_ONLY);
         origAtoms.getBuffer().put(atoms).rewind();
@@ -388,9 +405,9 @@ public class DiffractionViewer implements GLEventListener
                 .putArg(transAtoms)
                 .putArg(transformMatrix)
                 .putArg(atomCount)
-                .putArg(0.0f)
-                .putArg(0.0f)
-                .putArg(0.0f)
+                .putArg(centerX)
+                .putArg(centerY)
+                .putArg(centerZ)
                 .rewind();
 
         initPhaseKernel = diffractionProg.createCLKernel("initPhase")
