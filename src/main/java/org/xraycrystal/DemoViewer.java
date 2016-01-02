@@ -20,6 +20,8 @@ import com.jogamp.opengl.awt.GLCanvas;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ItemEvent;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -32,11 +34,11 @@ public class DemoViewer implements GLEventListener
     private int     bufferHeight = 512;
     private boolean GL_INTEROP   = true; // switch for CL-GL transfers
 
-    private final float lambda = 0.5e-10f;
-    private final float R = 1e-7f;
-    private final float L = 3e-7f;
-    private final float amp = 2f;
-    private final int phase = 0;
+    private float lambda = 0.5e-10f;
+    private float R = 1e-7f;
+    private float L = 3e-7f;
+    private float amp = 1f;
+    private int phase = 0;
     private final double w = 0.5;
     private double angle = 0.0;
 
@@ -134,10 +136,30 @@ public class DemoViewer implements GLEventListener
 
         frame = new JFrame("DemoViewer");
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
-        frame.add       (canvas);
-        frame.setSize   (bufferWidth, bufferHeight);
+
+        GridBagLayout layout = new GridBagLayout();
+        GridBagConstraints c = new GridBagConstraints();
+        frame.setLayout(layout);
+
+        canvas.setPreferredSize(new Dimension(bufferWidth, bufferHeight));
+
+        JCheckBox phaseCB = new JCheckBox("Show phase");
+        phaseCB.setSelected(0 != phase);
+        phaseCB.addItemListener(this::togglePhaseDisplay);
+
+        frame.add (canvas, c);
+        frame.add (phaseCB, c);
+
+        frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
+    }
+
+    private void togglePhaseDisplay(ItemEvent event) {
+        phase = ((JCheckBox)event.getSource()).isSelected() ? 1 : 0;
+        if(null != diffractionKernel){
+            diffractionKernel.setArg(8, phase);
+        }
     }
 
 
@@ -169,7 +191,10 @@ public class DemoViewer implements GLEventListener
             GL3 gl = drawable.getGL().getGL3();
             gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
             gl.glClearDepth(1.0f);
-            gl.glDisable   (GL2.GL_DEPTH_TEST);
+            gl.glDisable(GL2.GL_DEPTH_TEST);
+            gl.glEnable(GL2.GL_BLEND);
+            gl.glBlendEquationSeparate(GL2.GL_FUNC_ADD, GL2.GL_FUNC_ADD);
+            gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO);
             gl.glPixelStorei(GL2.GL_UNPACK_ALIGNMENT, 1);
 
             initShader     (drawable);
@@ -446,7 +471,7 @@ public class DemoViewer implements GLEventListener
             // Create an empty OpenCL buffer
             ByteBuffer buffer = ByteBuffer.allocateDirect(bufferWidth*bufferHeight*4); buffer.order(ByteOrder.nativeOrder());
             texBuffer = clContext.createImage2d(buffer, bufferWidth, bufferHeight,
-                    new CLImageFormat(CLImageFormat.ChannelOrder.RGBA, CLImageFormat.ChannelType.UNSIGNED_INT8),
+                    new CLImageFormat(CLImageFormat.ChannelOrder.RGBA, CLImageFormat.ChannelType.UNORM_INT8),
                     CLBuffer.Mem.WRITE_ONLY);
 
             System.out.println(String.format("texture-size=%d", texBuffer.getBuffer().capacity()));

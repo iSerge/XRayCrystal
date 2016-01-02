@@ -9,7 +9,6 @@ kernel void prepareLattice(global float4* aIn,  global float4* aOut, global floa
         aOut[i].y = aIn[i].x*matrix[3] + aIn[i].y*matrix[4] + aIn[i].z*matrix[5];
         aOut[i].z = aIn[i].x*matrix[6] + aIn[i].y*matrix[7] + aIn[i].z*matrix[8];
         aOut[i].s3 = aIn[i].s3;
-//        aOut[i] = aIn[i];
     }
 }
 
@@ -39,8 +38,6 @@ kernel void diffraction(global float4* atoms,  global float2* psi, write_only im
     const float k = _2PI / lambda;
 
     float2 I = (float2)(0.0f, 0.0f);
-//    I.x = 0.0f;
-//    I.y = 0.0f;
 
     float Lx = L*(x/width - 0.5f);
     float Ly = L*(y/height - 0.5f);
@@ -69,7 +66,7 @@ kernel void diffraction(global float4* atoms,  global float2* psi, write_only im
     float4 color;
 
     if(phase){
-        color = (float4)(sin(v), sin(v + _2PI/3), sin(v + 4*PI/3), 1.0f);
+        color = (float4)(sin(v), sin(v + _2PI/3), sin(v + 4*PI/3), clamp(sqrt(I.x*I.x + I.y*I.y), 0.0f, 1.0f));
         color = color*color;
     } else {
         color = (float4)(v, v, v, 1.0f);
