@@ -12,6 +12,8 @@ public class StructureGLListener implements GLEventListener {
     private int geomId;
     private int fragId;
 
+    private int lightId;
+
     private int vbo;
     private int bufferId;
 
@@ -24,6 +26,8 @@ public class StructureGLListener implements GLEventListener {
              0.45f, -0.45f,  0.0f, 0.0f, 1.0f,  0.2f,
             -0.45f, -0.45f,  1.0f, 1.0f, 0.0f,  0.08f
     };
+
+    private float[] lightDirection = {1.0f, 1.0f, 1.0f};
 
     @Override
     public void init(GLAutoDrawable drawable) {
@@ -65,6 +69,7 @@ public class StructureGLListener implements GLEventListener {
         int posId = gl.glGetAttribLocation(programId, "pos");
         int colorId = gl.glGetAttribLocation(programId, "color");
         int radiusId = gl.glGetAttribLocation(programId, "radius");
+        lightId = gl.glGetUniformLocation(programId, "lightDir");
 
         gl.glVertexAttribPointer(posId, 2, GL2.GL_FLOAT, false, 24/* 6*sizeof(float) */, 0);
         gl.glEnableVertexAttribArray(posId);
@@ -152,6 +157,8 @@ public class StructureGLListener implements GLEventListener {
 
         gl.glUseProgram(programId);
         gl.glBindVertexArray(vbo);
+
+        gl.glUniform3fv(lightId, 1, lightDirection, 0);
 
         gl.glDrawArrays(GL2.GL_POINTS, 0, atomCount);
 
