@@ -9,7 +9,6 @@ import java.nio.ByteBuffer;
 public class StructureGLListener implements GLEventListener {
     private int programId;
     private int vertId;
-    private int geomId;
     private int fragId;
 
     private int lightId;
@@ -21,13 +20,13 @@ public class StructureGLListener implements GLEventListener {
 
     private float[] atoms = {
             //  Coordinates  Color              Radius
-            -0.45f,  0.45f,  1.0f, 0.0f, 0.0f,  0.1f,
-             0.45f,  0.45f,  0.0f, 1.0f, 0.0f,  0.05f,
-             0.45f, -0.45f,  0.0f, 0.0f, 1.0f,  0.2f,
-            -0.45f, -0.45f,  1.0f, 1.0f, 0.0f,  0.08f
+            -0.45f,  0.45f,  0.8f, 0.0f, 0.0f,  100f,
+             0.45f,  0.45f,  0.0f, 0.8f, 0.0f,  50f,
+             0.45f, -0.45f,  0.0f, 0.0f, 0.8f,  200f,
+            -0.45f, -0.45f,  0.8f, 0.8f, 0.0f,  400f
     };
 
-    private float[] lightDirection = {1.0f, 1.0f, 1.0f};
+    private float[] lightDirection = {-0.5f, -0.5f, 1.0f};
 
     @Override
     public void init(GLAutoDrawable drawable) {
@@ -35,13 +34,18 @@ public class StructureGLListener implements GLEventListener {
 
         GL3 gl = drawable.getGL().getGL3();
 
-        gl.glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+        gl.glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         gl.glClearDepth(1.0f);
+
         gl.glEnable(GL2.GL_DEPTH_TEST);
         gl.glDepthFunc(GL2.GL_LEQUAL);
+
         gl.glEnable(GL2.GL_BLEND);
         gl.glBlendEquationSeparate(GL2.GL_FUNC_ADD, GL2.GL_FUNC_ADD);
         gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO);
+
+        gl.glEnable(GL4.GL_PROGRAM_POINT_SIZE);
+
         gl.glPixelStorei(GL2.GL_UNPACK_ALIGNMENT, 1);
 
         initShader(drawable);
@@ -88,35 +92,28 @@ public class StructureGLListener implements GLEventListener {
         GL3 gl = d.getGL().getGL3(); // get the OpenGL 3 graphics context
 
         vertId = gl.glCreateShader(GL2.GL_VERTEX_SHADER);
-        geomId = gl.glCreateShader(GL3.GL_GEOMETRY_SHADER);
         fragId = gl.glCreateShader(GL2.GL_FRAGMENT_SHADER);
 
         String sourceVS = Utils.readResource("/org/xraycrystal/struct.vertex");
-        String sourceGS = Utils.readResource("/org/xraycrystal/struct.geometry");
         String sourceFS = Utils.readResource("/org/xraycrystal/struct.fragment");
 
         String[] vs = { sourceVS };
-        String[] gs = { sourceGS };
         String[] fs = { sourceFS };
 
         gl.glShaderSource(vertId, 1, vs, null, 0);
-        gl.glShaderSource(geomId, 1, gs, null, 0);
         gl.glShaderSource(fragId, 1, fs, null, 0);
 
         // compile the shader
         gl.glCompileShader(vertId);
-        gl.glCompileShader(geomId);
         gl.glCompileShader(fragId);
 
         GlUtils.printShaderInfoLog(d, vertId);
-        GlUtils.printShaderInfoLog(d, geomId);
         GlUtils.printShaderInfoLog(d, fragId);
 
 
         // create program and attach shaders
         programId = gl.glCreateProgram();
         gl.glAttachShader(programId, vertId);
-        gl.glAttachShader(programId, geomId);
         gl.glAttachShader(programId, fragId);
 
         // "out_color" is a user-provided OUT variable of the fragment shader.
@@ -137,11 +134,9 @@ public class StructureGLListener implements GLEventListener {
         gl.glUseProgram(0);
 
         gl.glDetachShader(programId, vertId);
-        gl.glDetachShader(programId, geomId);
         gl.glDetachShader(programId, fragId);
 
         gl.glDeleteShader(vertId);
-        gl.glDeleteShader(geomId);
         gl.glDeleteShader(fragId);
         gl.glDeleteProgram(programId);
 

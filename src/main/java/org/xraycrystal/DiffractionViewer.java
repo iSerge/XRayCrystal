@@ -128,7 +128,7 @@ public class DiffractionViewer implements GLEventListener
     }
 
     private void initUI() {
-        GLCapabilities config = new GLCapabilities(GLProfile.get(GLProfile.GL3));
+        GLCapabilities config = new GLCapabilities(GLProfile.get(GLProfile.GL4));
 
         GLCanvas diffractionView = new GLCanvas(config);
         diffractionView.addGLEventListener(this);
