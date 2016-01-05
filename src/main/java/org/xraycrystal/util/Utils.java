@@ -46,9 +46,21 @@ public class Utils {
             for(int j = 0; j<n; ++j){
                 float r = 0.0f;
                 for(int k = 0; k<n; ++k){
-                    r += a[i*n+k]*b[k*n+j];
+                    r += a[i*n + k]*b[k*n + j];
                 }
-                result[i*n+j] = r;
+                result[i*n + j] = r;
+            }
+        }
+
+        return result;
+    }
+
+    public static float[] reMat(float[] a, int n){
+        float[] result = new float[n*n];
+
+        for(int i = 0; i<n; ++i){
+            for(int j = 0; j<n; ++j){
+                result[i*n + j] = a[j*n + i];
             }
         }
 

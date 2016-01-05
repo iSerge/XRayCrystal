@@ -25,6 +25,7 @@ import java.awt.event.ItemEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
 import java.nio.*;
+import java.util.Hashtable;
 
 public class DiffractionViewer implements GLEventListener
 {
@@ -32,7 +33,7 @@ public class DiffractionViewer implements GLEventListener
     private int     bufferHeight = 512;
     private boolean GL_INTEROP   = true; // switch for CL-GL transfers
 
-    private float lambda = 0.5e-10f;
+    private float lambda = 0.5f;
     private float R = 1e-7f;
     private float L = 3e-7f;
     private float amp = 1f;
@@ -116,6 +117,7 @@ public class DiffractionViewer implements GLEventListener
 
     private int oldMouseX = 0;
     private int oldMouseY = 0;
+
     private GLCanvas diffractionView;
     private GLCanvas structureView;
 
@@ -149,6 +151,36 @@ public class DiffractionViewer implements GLEventListener
         phaseCB.setSelected(0 != phase);
         phaseCB.addItemListener(this::togglePhaseDisplay);
 
+        JPanel wlPanel = new JPanel();
+        wlPanel.add(new JLabel("Wavelength, Å"));
+        JTextField wlField = new JTextField(String.valueOf(lambda), 6);
+        wlPanel.add(wlField);
+
+        JSlider wlSlider = new JSlider(0, 1000);
+        wlSlider.setValue(mkSliderValue(lambda));
+        wlSlider.setMajorTickSpacing(333);
+        wlSlider.setPaintTicks(true);
+
+        Hashtable<Integer, JLabel> sliderLabels = new Hashtable<>();
+        sliderLabels.put(1, new JLabel("0"));
+        sliderLabels.put(333, new JLabel("0.1"));
+        sliderLabels.put(666, new JLabel("1.0"));
+        sliderLabels.put(1000, new JLabel("10"));
+        wlSlider.setLabelTable(sliderLabels);
+        wlSlider.setPaintLabels(true);
+
+        wlField.addActionListener(e -> {
+            lambda = Float.parseFloat(wlField.getText());
+            wlSlider.setValue(mkSliderValue(lambda));
+            diffractionView.display();
+        });
+
+        wlSlider.addChangeListener(e ->{
+            lambda = mkLambda(wlSlider.getValue());
+            wlField.setText(String.format("%.5f", lambda));
+            diffractionView.display();
+        });
+
         c.insets.set(6,6,6,6);
 
         c.gridx = 0;
@@ -164,6 +196,12 @@ public class DiffractionViewer implements GLEventListener
 
         c.gridy = 1;
         frame.add(phaseCB, c);
+
+        c.gridy = 2;
+        frame.add(wlPanel, c);
+
+        c.gridy = 3;
+        frame.add(wlSlider, c);
 
         frame.pack();
         frame.setLocationRelativeTo(null);
@@ -184,13 +222,38 @@ public class DiffractionViewer implements GLEventListener
         });
     }
 
+    private int mkSliderValue(float lambda){
+        int sliderValue = 1;
+        if(lambda < 0.1f){
+            sliderValue = (int)(lambda*3330);
+        } else if (0.1f <= lambda && lambda < 1.0f){
+            sliderValue = 333 + (int)((lambda-0.1f)*333/0.9f);
+        } else if (1.0f <= lambda) {
+            sliderValue = 666 + (int)((lambda-1.0f)*334/9);
+        }
+
+        return sliderValue;
+    }
+
+    private float mkLambda(int sliderValue) {
+        float lambda = 0.5f;
+        if(sliderValue < 333){
+            lambda = sliderValue*0.1f/333;
+        } else if (333 <= sliderValue && sliderValue < 666){
+            lambda = 0.1f + (sliderValue-333)*0.9f/333;
+        } else if (666 <= sliderValue){
+            lambda = 1.0f + (float)(sliderValue-666)*9/334;
+        }
+        return lambda;
+    }
+
     private void updateMousePos(MouseEvent e) {
         oldMouseX = e.getX();
         oldMouseY = e.getY();
     }
 
     private void updateView(MouseEvent e, StructureGLListener structRenderer) {
-        double w = 0.05;
+        double w = 0.01;
         float cosX = (float)Math.cos(w*(e.getX() - oldMouseX));
         float sinX = (float)Math.sin(w*(e.getX() - oldMouseX));
 
@@ -215,7 +278,6 @@ public class DiffractionViewer implements GLEventListener
 
         atomsTransMat = Utils.matMul(diffMatrix, atomsTransMat, 3);
 
-        //structRenderer.updateTransformMatrix(diffMatrix);
         structRenderer.setTransformMatrix(atomsTransMat);
     }
 
@@ -421,7 +483,7 @@ public class DiffractionViewer implements GLEventListener
                 .putArg(transAtoms)
                 .putArg(psi)
                 .putArg(atomCount)
-                .putArg(lambda)
+                .putArg(lambda*1e-10f)
                 .rewind();
 
         if (GL_INTEROP) {
@@ -435,7 +497,7 @@ public class DiffractionViewer implements GLEventListener
                     .putArg(psi)
                     .putArg(texBuffer2)
                     .putArg(atomCount)
-                    .putArg(lambda)
+                    .putArg(lambda*1e-10f)
                     .putArg(R)
                     .putArg(L)
                     .putArg(amp)
@@ -456,7 +518,7 @@ public class DiffractionViewer implements GLEventListener
                     .putArg(psi)
                     .putArg(texBuffer)
                     .putArg(atomCount)
-                    .putArg(lambda)
+                    .putArg(lambda*1e-10f)
                     .putArg(R)
                     .putArg(L)
                     .putArg(amp)
@@ -502,6 +564,9 @@ public class DiffractionViewer implements GLEventListener
 
         transformMatrix.getBuffer().put(atomsTransMat).rewind();
         commandQueue.putWriteBuffer(transformMatrix, false);
+
+        initPhaseKernel.setArg(3, lambda*1e-10f);
+        diffractionKernel.setArg(4, lambda*1e-10f);
 
         if (GL_INTEROP) {
             commandQueue.putAcquireGLObject(texBuffer2)
