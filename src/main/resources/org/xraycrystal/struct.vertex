@@ -1,6 +1,8 @@
 #version 330 core
 
+uniform mat4 P;
 uniform mat4 T;
+uniform mat4 M;
 
 in vec3 pos;
 in vec3 color;
@@ -9,7 +11,7 @@ in float radius;
 out vec3 vColor;
 
 void main() {
-    gl_Position = T * vec4(pos, 1.0);
+    gl_Position = P * T * M * vec4(pos, 1.0);
     vColor = color;
     gl_PointSize = radius;
 }

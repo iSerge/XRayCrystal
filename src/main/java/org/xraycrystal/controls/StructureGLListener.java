@@ -8,29 +8,44 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
 public class StructureGLListener implements GLEventListener {
+    public static final int ATOM_DESCR_LEN = 7;
     private int programId;
     private int vertId;
     private int fragId;
 
     private int lightId;
     private int transId;
+    private int modelMatId;
+    private int projMatId;
 
     private int vbo;
-    private int bufferId;
-
-    private int atomCount = 4;
+    private int bufferId = -1;
 
     private float[] atoms = {
-            //  Coordinates  Color              Radius
-            -0.45f,  0.45f, 0f,  0.8f, 0.0f, 0.0f,  100f,
-             0.45f,  0.45f, 0f,  0.0f, 0.8f, 0.0f,  50f,
-             0.45f, -0.45f, 0f,  0.0f, 0.0f, 0.8f,  200f,
-            -0.45f, -0.45f, 0f,  0.8f, 0.8f, 0.0f,  400f
+         //  Coordinates            Color              Radius
+             0.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  100f,
+             3.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  100f,
     };
+
+    private int atomCount = atoms.length / ATOM_DESCR_LEN;
 
     private float[] lightDirection = {-0.5f, -0.5f, 1.0f};
 
+    private float[] modelMatrix = {
+            1f, 0f, 0f, 0f,
+            0f, 1f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 0f, 0f, 1f
+    };
+
     private float[] transformMatrix = {
+            1f, 0f, 0f, 0f,
+            0f, 1f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 0f, 0f, 1f
+    };
+
+    private float[] projectionMatrix = {
             1f, 0f, 0f, 0f,
             0f, 1f, 0f, 0f,
             0f, 0f, 1f, 0f,
@@ -76,25 +91,60 @@ public class StructureGLListener implements GLEventListener {
         gl.glBindVertexArray(vbo);
         gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, bufferId);
 
-        ByteBuffer data = GlUtils.clone(atoms);
-        gl.glBufferData(GL2.GL_ARRAY_BUFFER, atoms.length*4, data, GL2.GL_STATIC_DRAW);
+        setAtoms(atoms ,drawable);
 
         int posId = gl.glGetAttribLocation(programId, "pos");
         int colorId = gl.glGetAttribLocation(programId, "color");
         int radiusId = gl.glGetAttribLocation(programId, "radius");
         lightId = gl.glGetUniformLocation(programId, "lightDir");
         transId = gl.glGetUniformLocation(programId, "T");
+        modelMatId = gl.glGetUniformLocation(programId, "M");
+        projMatId = gl.glGetUniformLocation(programId, "P");
 
-        gl.glVertexAttribPointer(posId, 3, GL2.GL_FLOAT, false, 28/* 7*sizeof(float) */, 0);
+        gl.glVertexAttribPointer(posId, 3, GL2.GL_FLOAT, false, 28/* ATOM_DESCR_LEN*sizeof(float) */, 0);
         gl.glEnableVertexAttribArray(posId);
 
-        gl.glVertexAttribPointer(colorId, 3, GL2.GL_FLOAT, false, 28/* 7*sizeof(float) */, 12 /* 3*sizeof(float) */);
+        gl.glVertexAttribPointer(colorId, 3, GL2.GL_FLOAT, false, 28/* ATOM_DESCR_LEN*sizeof(float) */, 12 /* 3*sizeof(float) */);
         gl.glEnableVertexAttribArray(colorId);
 
-        gl.glVertexAttribPointer(radiusId, 1, GL2.GL_FLOAT, false, 28/* 7*sizeof(float) */, 24 /* 6*sizeof(float) */);
+        gl.glVertexAttribPointer(radiusId, 1, GL2.GL_FLOAT, false, 28/* ATOM_DESCR_LEN*sizeof(float) */, 24 /* 6*sizeof(float) */);
         gl.glEnableVertexAttribArray(radiusId);
 
         gl.glBindVertexArray(0);
+    }
+
+    private void setAtoms(float[] atoms, GLAutoDrawable drawable) {
+        GL3 gl = drawable.getGL().getGL3();
+
+        atomCount = atoms.length / ATOM_DESCR_LEN;
+
+        float[] center = {0f, 0f, 0f};
+        float[] min = {1e20f, 1e20f, 1e20f};
+        float[] max = {-1e20f, -1e20f, -1e20f};
+
+        for(int i = 0; i < atomCount; ++i){
+            for(int j = 0; j < 3; ++j) {
+                float coord = atoms[i * ATOM_DESCR_LEN + j];
+                center[j] += coord;
+                min[i] = Math.min(min[i], coord);
+                max[i] = Math.max(max[i], coord);
+            }
+        }
+
+        float maxDelta = 1.4142f * Math.max(max[0]-min[0], Math.max(max[1]-min[1], max[2]-min[2]));
+
+        for(int i = 0; i < atomCount; ++i){
+            atoms[i * ATOM_DESCR_LEN + 6] /= Math.sqrt(maxDelta);
+        }
+
+        projectionMatrix[15] = maxDelta;
+
+        modelMatrix[12] = -center[0]/atomCount;
+        modelMatrix[13] = -center[1]/atomCount;
+        modelMatrix[14] = -center[2]/atomCount;
+
+        ByteBuffer data = GlUtils.clone(atoms);
+        gl.glBufferData(GL2.GL_ARRAY_BUFFER, atoms.length*4, data, GL2.GL_STATIC_DRAW);
     }
 
     public void initShader (GLAutoDrawable d)
@@ -166,6 +216,9 @@ public class StructureGLListener implements GLEventListener {
         gl.glUniform3fv(lightId, 1, lightDirection, 0);
 
         gl.glUniformMatrix4fv(transId, 1, false, FloatBuffer.wrap(transformMatrix));
+
+        gl.glUniformMatrix4fv(modelMatId, 1, false, FloatBuffer.wrap(modelMatrix));
+        gl.glUniformMatrix4fv(projMatId, 1, false, FloatBuffer.wrap(projectionMatrix));
 
         gl.glDrawArrays(GL2.GL_POINTS, 0, atomCount);
     }
