@@ -22,10 +22,10 @@ public class StructureGLListener implements GLEventListener {
 
     private float[] atoms = {
             //  Coordinates  Color              Radius
-            -0.45f,  0.45f,  0.8f, 0.0f, 0.0f,  100f,
-             0.45f,  0.45f,  0.0f, 0.8f, 0.0f,  50f,
-             0.45f, -0.45f,  0.0f, 0.0f, 0.8f,  200f,
-            -0.45f, -0.45f,  0.8f, 0.8f, 0.0f,  400f
+            -0.45f,  0.45f, 0f,  0.8f, 0.0f, 0.0f,  100f,
+             0.45f,  0.45f, 0f,  0.0f, 0.8f, 0.0f,  50f,
+             0.45f, -0.45f, 0f,  0.0f, 0.0f, 0.8f,  200f,
+            -0.45f, -0.45f, 0f,  0.8f, 0.8f, 0.0f,  400f
     };
 
     private float[] lightDirection = {-0.5f, -0.5f, 1.0f};
@@ -85,13 +85,13 @@ public class StructureGLListener implements GLEventListener {
         lightId = gl.glGetUniformLocation(programId, "lightDir");
         transId = gl.glGetUniformLocation(programId, "T");
 
-        gl.glVertexAttribPointer(posId, 2, GL2.GL_FLOAT, false, 24/* 6*sizeof(float) */, 0);
+        gl.glVertexAttribPointer(posId, 3, GL2.GL_FLOAT, false, 28/* 7*sizeof(float) */, 0);
         gl.glEnableVertexAttribArray(posId);
 
-        gl.glVertexAttribPointer(colorId, 3, GL2.GL_FLOAT, false, 24/* 6*sizeof(float) */, 8 /* 2*sizeof(float) */);
+        gl.glVertexAttribPointer(colorId, 3, GL2.GL_FLOAT, false, 28/* 7*sizeof(float) */, 12 /* 3*sizeof(float) */);
         gl.glEnableVertexAttribArray(colorId);
 
-        gl.glVertexAttribPointer(radiusId, 2, GL2.GL_FLOAT, false, 24/* 6*sizeof(float) */, 20 /* 2*sizeof(float) */);
+        gl.glVertexAttribPointer(radiusId, 1, GL2.GL_FLOAT, false, 28/* 7*sizeof(float) */, 24 /* 6*sizeof(float) */);
         gl.glEnableVertexAttribArray(radiusId);
 
         gl.glBindVertexArray(0);
@@ -189,15 +189,5 @@ public class StructureGLListener implements GLEventListener {
         transformMatrix[9] = mat[7];
         transformMatrix[10] = mat[8];
         transformMatrix[11] = 0;
-    }
-
-    public void updateTransformMatrix(float[] diffMatrix) {
-        float[] deltaMatrix = {
-            diffMatrix[0], diffMatrix[1], diffMatrix[2], 0,
-            diffMatrix[3], diffMatrix[4], diffMatrix[5], 0,
-            diffMatrix[6], diffMatrix[7], diffMatrix[8], 0,
-                        0,             0,             0, 1
-        };
-        transformMatrix = Utils.matMul(deltaMatrix, transformMatrix, 4);
     }
 }
