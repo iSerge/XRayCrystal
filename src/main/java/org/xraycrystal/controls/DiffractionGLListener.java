@@ -12,7 +12,7 @@ import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
-public class DifractionGLListener implements GLEventListener {
+public class DiffractionGLListener implements GLEventListener {
     private int     bufferWidth  = 512; // texture size
     private int     bufferHeight = 512;
     private boolean GL_INTEROP   = true; // switch for CL-GL transfers

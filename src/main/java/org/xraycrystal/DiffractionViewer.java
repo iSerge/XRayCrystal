@@ -3,7 +3,7 @@ package org.xraycrystal;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
-import org.xraycrystal.controls.DifractionGLListener;
+import org.xraycrystal.controls.DiffractionGLListener;
 import org.xraycrystal.controls.StructureGLListener;
 import org.xraycrystal.util.Utils;
 
@@ -38,7 +38,7 @@ public class DiffractionViewer
         GLCapabilities config = new GLCapabilities(GLProfile.get(GLProfile.GL4));
 
         diffractionView = new GLCanvas(config);
-        DifractionGLListener diffractionRenderer = new DifractionGLListener();
+        DiffractionGLListener diffractionRenderer = new DiffractionGLListener();
         diffractionView.addGLEventListener(diffractionRenderer);
 
         JFrame frame = new JFrame("DemoViewer");
