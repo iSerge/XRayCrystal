@@ -24,6 +24,8 @@ import org.xraycrystal.util.Utils;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ItemEvent;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.nio.*;
 
 public class DiffractionViewer implements GLEventListener
@@ -87,7 +89,6 @@ public class DiffractionViewer implements GLEventListener
     private CLImage2d<ByteBuffer> texBuffer;
 
     private float[] atoms = {
-//            0f,0f,0f,1f
                 2.307707f,    0.000000f,    3.601333f, 1f, //Si
                -0.148293f,    4.253917f,    3.601333f, 1f, //Si
                -1.153853f,    1.998533f,    1.800667f, 1f, //Si
@@ -121,6 +122,9 @@ public class DiffractionViewer implements GLEventListener
 
     private long prevTimeNS = 0;
 
+    private int oldMouseX = 0;
+    private int oldMouseY = 0;
+
     public DiffractionViewer() {
 
         SwingUtilities.invokeLater(this::initUI);
@@ -143,7 +147,8 @@ public class DiffractionViewer implements GLEventListener
         diffractionView.setPreferredSize(new Dimension(bufferWidth, bufferHeight));
 
         GLCanvas structureView = new GLCanvas(config);
-        structureView.addGLEventListener(new StructureGLListener());
+        StructureGLListener structureRenderer = new StructureGLListener();
+        structureView.addGLEventListener(structureRenderer);
         structureView.setPreferredSize(new Dimension(256,256));
 
         JCheckBox phaseCB = new JCheckBox("Show phase");
@@ -170,8 +175,54 @@ public class DiffractionViewer implements GLEventListener
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
 
+        structureView.addMouseMotionListener(new MouseMotionAdapter() {
+            @Override
+            public void mouseDragged(MouseEvent e) {
+                updateView(e, structureRenderer);
+                structureView.display();
+            }
+
+            @Override
+            public void mouseMoved(MouseEvent e) {
+                updateMousePos(e);
+            }
+        });
+
         structureView.display();
     }
+
+    private void updateMousePos(MouseEvent e) {
+        oldMouseX = e.getX();
+        oldMouseY = e.getY();
+    }
+
+    private void updateView(MouseEvent e, StructureGLListener structRenderer) {
+        double w = 0.05;
+        float cosX = (float)Math.cos(w*(e.getX() - oldMouseX));
+        float sinX = (float)Math.sin(w*(e.getX() - oldMouseX));
+
+        float cosY = (float)Math.cos(w*(e.getY() - oldMouseY));
+        float sinY = (float)Math.sin(w*(e.getY() - oldMouseY));
+
+        updateMousePos(e);
+
+        float[] My = {
+                cosX, 0, sinX,
+                   0, 1,    0,
+               -sinX, 0, cosX
+        };
+
+        float[] Mx = {
+                1,    0,     0,
+                0, cosY, -sinY,
+                0, sinY,  cosY
+        };
+
+        float[] diffMatrix = Utils.matMul( My, Mx, 3);
+
+        structRenderer.updateTransformMatrix(diffMatrix);
+    }
+
 
     private void togglePhaseDisplay(ItemEvent event) {
         phase = ((JCheckBox)event.getSource()).isSelected() ? 1 : 0;

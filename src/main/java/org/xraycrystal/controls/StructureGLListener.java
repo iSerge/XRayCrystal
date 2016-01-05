@@ -5,6 +5,7 @@ import org.xraycrystal.util.GlUtils;
 import org.xraycrystal.util.Utils;
 
 import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 
 public class StructureGLListener implements GLEventListener {
     private int programId;
@@ -12,6 +13,7 @@ public class StructureGLListener implements GLEventListener {
     private int fragId;
 
     private int lightId;
+    private int transId;
 
     private int vbo;
     private int bufferId;
@@ -27,6 +29,13 @@ public class StructureGLListener implements GLEventListener {
     };
 
     private float[] lightDirection = {-0.5f, -0.5f, 1.0f};
+
+    private float[] transformMatrix = {
+            1f, 0f, 0f, 0f,
+            0f, 1f, 0f, 0f,
+            0f, 0f, 1f, 0f,
+            0f, 0f, 0f, 1f
+    };
 
     @Override
     public void init(GLAutoDrawable drawable) {
@@ -74,6 +83,7 @@ public class StructureGLListener implements GLEventListener {
         int colorId = gl.glGetAttribLocation(programId, "color");
         int radiusId = gl.glGetAttribLocation(programId, "radius");
         lightId = gl.glGetUniformLocation(programId, "lightDir");
+        transId = gl.glGetUniformLocation(programId, "T");
 
         gl.glVertexAttribPointer(posId, 2, GL2.GL_FLOAT, false, 24/* 6*sizeof(float) */, 0);
         gl.glEnableVertexAttribArray(posId);
@@ -155,6 +165,8 @@ public class StructureGLListener implements GLEventListener {
 
         gl.glUniform3fv(lightId, 1, lightDirection, 0);
 
+        gl.glUniformMatrix4fv(transId, 1, false, FloatBuffer.wrap(transformMatrix));
+
         gl.glDrawArrays(GL2.GL_POINTS, 0, atomCount);
 
     }
@@ -165,4 +177,13 @@ public class StructureGLListener implements GLEventListener {
         gl.glViewport(0, 0, width, height);
     }
 
+    public void updateTransformMatrix(float[] diffMatrix) {
+        float[] deltaMatrix = {
+            diffMatrix[0], diffMatrix[1], diffMatrix[2], 0,
+            diffMatrix[3], diffMatrix[4], diffMatrix[5], 0,
+            diffMatrix[6], diffMatrix[7], diffMatrix[8], 0,
+                        0,             0,             0, 1
+        };
+        transformMatrix = Utils.matMul(deltaMatrix, transformMatrix, 4);
+    }
 }
