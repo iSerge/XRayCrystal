@@ -1,5 +1,4 @@
-package org.xraycrystal;/* JOGL - JOCL in Java. Demo by fifty.
- */
+package org.xraycrystal;
 
 import com.jogamp.opencl.CLCommandQueue;
 import com.jogamp.opencl.CLDevice;
@@ -8,7 +7,6 @@ import com.jogamp.opencl.*;
 import com.jogamp.opencl.CLKernel;
 import com.jogamp.opencl.CLPlatform;
 import com.jogamp.opencl.CLProgram;
-import com.jogamp.opengl.util.Animator;
 import com.jogamp.opengl.DebugGL3;
 import com.jogamp.opengl.GL2;
 import com.jogamp.opengl.GL3;
@@ -40,8 +38,6 @@ public class DiffractionViewer implements GLEventListener
     private float amp = 1f;
 
     private int phase = 0;
-    private final double w = 0.5;
-    private double angle = 0.0;
 
     private float[] identity_matrix = new float[]{
             1.0f, 0.0f, 0.0f, 0.0f,
@@ -67,8 +63,6 @@ public class DiffractionViewer implements GLEventListener
             bufferWidth, bufferHeight,
             0.0f,        bufferHeight
     };
-
-    private JFrame     frame;
 
     private int        texId;
     private int        programId;
@@ -120,10 +114,10 @@ public class DiffractionViewer implements GLEventListener
     private CLBuffer<FloatBuffer> transAtoms;
     private CLBuffer<FloatBuffer> psi;
 
-    private long prevTimeNS = 0;
-
     private int oldMouseX = 0;
     private int oldMouseY = 0;
+    private GLCanvas diffractionView;
+    private GLCanvas structureView;
 
     public DiffractionViewer() {
 
@@ -134,10 +128,10 @@ public class DiffractionViewer implements GLEventListener
     private void initUI() {
         GLCapabilities config = new GLCapabilities(GLProfile.get(GLProfile.GL4));
 
-        GLCanvas diffractionView = new GLCanvas(config);
+        diffractionView = new GLCanvas(config);
         diffractionView.addGLEventListener(this);
 
-        frame = new JFrame("DemoViewer");
+        JFrame frame = new JFrame("DemoViewer");
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
         GridBagLayout layout = new GridBagLayout();
@@ -146,7 +140,7 @@ public class DiffractionViewer implements GLEventListener
 
         diffractionView.setPreferredSize(new Dimension(bufferWidth, bufferHeight));
 
-        GLCanvas structureView = new GLCanvas(config);
+        structureView = new GLCanvas(config);
         StructureGLListener structureRenderer = new StructureGLListener();
         structureView.addGLEventListener(structureRenderer);
         structureView.setPreferredSize(new Dimension(256,256));
@@ -180,6 +174,7 @@ public class DiffractionViewer implements GLEventListener
             public void mouseDragged(MouseEvent e) {
                 updateView(e, structureRenderer);
                 structureView.display();
+                diffractionView.display();
             }
 
             @Override
@@ -187,8 +182,6 @@ public class DiffractionViewer implements GLEventListener
                 updateMousePos(e);
             }
         });
-
-        structureView.display();
     }
 
     private void updateMousePos(MouseEvent e) {
@@ -220,7 +213,10 @@ public class DiffractionViewer implements GLEventListener
 
         float[] diffMatrix = Utils.matMul( My, Mx, 3);
 
-        structRenderer.updateTransformMatrix(diffMatrix);
+        atomsTransMat = Utils.matMul(diffMatrix, atomsTransMat, 3);
+
+        //structRenderer.updateTransformMatrix(diffMatrix);
+        structRenderer.setTransformMatrix(atomsTransMat);
     }
 
 
@@ -229,6 +225,7 @@ public class DiffractionViewer implements GLEventListener
         if(null != diffractionKernel){
             diffractionKernel.setArg(8, phase);
         }
+        diffractionView.display();
     }
 
 
@@ -249,7 +246,7 @@ public class DiffractionViewer implements GLEventListener
                 clContext2 = CLGLContext.create(drawable.getContext(), device);
                 clContext  = clContext2;
             } else {
-                clContext  = CLContext  .create(device);
+                clContext  = CLContext.create(device);
             }
 
             // enable GL error checking using the composable pipeline
@@ -265,7 +262,7 @@ public class DiffractionViewer implements GLEventListener
             gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO);
             gl.glPixelStorei(GL2.GL_UNPACK_ALIGNMENT, 1);
 
-            initShader     (drawable);
+            initShader(drawable);
             gl.glUseProgram(programId);
             System.out.println(String.format("%d/%d/%d", getLocation(gl, "M"), getLocation(gl, "P"), getLocation(gl, "tex")));
 
@@ -278,16 +275,15 @@ public class DiffractionViewer implements GLEventListener
             gl.glGenVertexArrays(1, IntBuffer.wrap(vboArray));
             vbo = vboArray[0];
             gl.glBindVertexArray(vbo);
+
             gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, idArray[0]);
             ByteBuffer texData = GlUtils.clone(quadTexcoords);
             gl.glBufferData(GL2.GL_ARRAY_BUFFER, quadTexcoords.length*4, texData, GL2.GL_STATIC_DRAW);
-            gl.glVertexAttribPointer    (getAttribLocation(gl, "texcoord"), 2, GL2.GL_FLOAT, false, 0, 0);
+            gl.glVertexAttribPointer(getAttribLocation(gl, "texcoord"), 2, GL2.GL_FLOAT, false, 0, 0);
             gl.glEnableVertexAttribArray(getAttribLocation(gl, "texcoord"));
+
             gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, idArray[1]);
             ByteBuffer coordData = GlUtils.clone(quadCoords);
-            System.out.println(String.format("%d/%d, %d/%d",
-                    getAttribLocation(gl, "vertex"),   coordData.capacity(),
-                    getAttribLocation(gl, "texcoord"), texData.capacity()));
             gl.glBufferData(GL2.GL_ARRAY_BUFFER, quadCoords.length*4, coordData, GL2.GL_STATIC_DRAW);
             gl.glVertexAttribPointer    (getAttribLocation(gl, "vertex"),   2, GL2.GL_FLOAT, false, 0, 0);
             gl.glEnableVertexAttribArray(getAttribLocation(gl, "vertex"));
@@ -314,11 +310,6 @@ public class DiffractionViewer implements GLEventListener
             gl.glBindTexture  (GL2.GL_TEXTURE_2D, 0);
             // initialize OpenCL, creating a context for the given GL object
             initCL(gl);
-
-            // start rendering thread
-            Animator animator = new Animator(drawable);
-            animator.start();
-
         }
     }
 
@@ -502,13 +493,6 @@ public class DiffractionViewer implements GLEventListener
         // draw quad
         gl.glBindVertexArray (vbo);
         gl.glDrawArrays      (GL2.GL_TRIANGLE_FAN, 0, 4);
-
-        // Update FPS information in main frame title
-        long currentTime = System.nanoTime();
-        long diff = currentTime - prevTimeNS;
-        prevTimeNS = currentTime;
-        double fps = (diff / 1e9);
-        frame.setTitle("JOCL Test - " +String.format("%.2f", 1.0/fps)+ " fps");
     }
 
     private void computeCL (GL3 gl)
@@ -516,21 +500,8 @@ public class DiffractionViewer implements GLEventListener
         // ensure pipeline is clean before doing cl work
         gl.glFinish();
 
-        if(0 != prevTimeNS){
-            long delta = System.nanoTime() - prevTimeNS;
-            angle += w * (delta * 1e-9);
-            if(2.0 * Math.PI < angle){
-                angle -= 2.0*Math.PI;
-            }
-            float cos = (float)Math.cos(angle);
-            float sin = (float)Math.sin(angle);
-            atomsTransMat[0] = cos;
-            atomsTransMat[2] = -sin;
-            atomsTransMat[6] = sin;
-            atomsTransMat[8] = cos;
-            transformMatrix.getBuffer().put(atomsTransMat).rewind();
-            commandQueue.putWriteBuffer(transformMatrix, false);
-        }
+        transformMatrix.getBuffer().put(atomsTransMat).rewind();
+        commandQueue.putWriteBuffer(transformMatrix, false);
 
         if (GL_INTEROP) {
             commandQueue.putAcquireGLObject(texBuffer2)

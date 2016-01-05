@@ -168,13 +168,27 @@ public class StructureGLListener implements GLEventListener {
         gl.glUniformMatrix4fv(transId, 1, false, FloatBuffer.wrap(transformMatrix));
 
         gl.glDrawArrays(GL2.GL_POINTS, 0, atomCount);
-
     }
 
     @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
         GL3 gl = drawable.getGL().getGL3();
         gl.glViewport(0, 0, width, height);
+    }
+
+    public void setTransformMatrix(float[] mat){
+        transformMatrix[0] = mat[0];
+        transformMatrix[1] = mat[1];
+        transformMatrix[2] = mat[2];
+        transformMatrix[3] = 0;
+        transformMatrix[4] = mat[3];
+        transformMatrix[5] = mat[4];
+        transformMatrix[6] = mat[5];
+        transformMatrix[7] = 0;
+        transformMatrix[8] = mat[6];
+        transformMatrix[9] = mat[7];
+        transformMatrix[10] = mat[8];
+        transformMatrix[11] = 0;
     }
 
     public void updateTransformMatrix(float[] diffMatrix) {
