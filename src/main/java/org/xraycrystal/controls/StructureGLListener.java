@@ -1,9 +1,13 @@
 package org.xraycrystal.controls;
 
 import com.jogamp.opengl.*;
+import org.jmol.adapter.smarter.Atom;
+import org.jmol.adapter.smarter.AtomSetCollection;
+import org.jmol.api.SymmetryInterface;
 import org.xraycrystal.util.GlUtils;
 import org.xraycrystal.util.Utils;
 
+import javax.vecmath.Point3f;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
@@ -21,6 +25,7 @@ public class StructureGLListener implements GLEventListener {
     private int vbo;
     private int bufferId = -1;
 
+    private boolean atomsLoaded = false;
     private float[] atoms = {
          //  Coordinates            Color              Radius
              0.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  100f,
@@ -126,12 +131,12 @@ public class StructureGLListener implements GLEventListener {
             for(int j = 0; j < 3; ++j) {
                 float coord = atoms[i * ATOM_DESCR_LEN + j];
                 center[j] += coord;
-                min[i] = Math.min(min[i], coord);
-                max[i] = Math.max(max[i], coord);
+                min[j] = Math.min(min[j], coord);
+                max[j] = Math.max(max[j], coord);
             }
         }
 
-        float maxDelta = 1.4142f * Math.max(max[0]-min[0], Math.max(max[1]-min[1], max[2]-min[2]));
+        float maxDelta = Math.max(max[0]-min[0], Math.max(max[1]-min[1], max[2]-min[2]));
 
         for(int i = 0; i < atomCount; ++i){
             atoms[i * ATOM_DESCR_LEN + 6] /= Math.sqrt(maxDelta);
@@ -145,6 +150,8 @@ public class StructureGLListener implements GLEventListener {
 
         ByteBuffer data = GlUtils.clone(atoms);
         gl.glBufferData(GL2.GL_ARRAY_BUFFER, atoms.length*4, data, GL2.GL_STATIC_DRAW);
+
+        atomsLoaded = true;
     }
 
     public void initShader (GLAutoDrawable d)
@@ -210,6 +217,10 @@ public class StructureGLListener implements GLEventListener {
 
         gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
 
+        if(!atomsLoaded){
+            setAtoms(atoms, drawable);
+        }
+
         gl.glUseProgram(programId);
         gl.glBindVertexArray(vbo);
 
@@ -242,5 +253,40 @@ public class StructureGLListener implements GLEventListener {
         transformMatrix[9] = mat[7];
         transformMatrix[10] = mat[8];
         transformMatrix[11] = 0;
+    }
+
+    public void setAtoms(AtomSetCollection atomsCollection) {
+        atomCount = atomsCollection.getAtomCount();
+        atoms = new float[atomCount*ATOM_DESCR_LEN];
+
+        SymmetryInterface symmetry = atomsCollection.getSymmetry();
+
+        for(int i = 0; i < atomCount; ++i){
+            if(null == symmetry || !symmetry.haveUnitCell()){
+                Atom atom = atomsCollection.getAtom(i);
+                atoms[i * ATOM_DESCR_LEN] = atom.x;
+                atoms[i * ATOM_DESCR_LEN + 1] = atom.y;
+                atoms[i * ATOM_DESCR_LEN + 2] = atom.z;
+            } else {
+                Point3f atom = new Point3f(atomsCollection.getAtom(i));
+                symmetry.toCartesian(atom, true);
+
+                atoms[i * ATOM_DESCR_LEN] = atom.x;
+                atoms[i * ATOM_DESCR_LEN + 1] = atom.y;
+                atoms[i * ATOM_DESCR_LEN + 2] = atom.z;
+            }
+
+            String element = atomsCollection.getAtom(i).getElementSymbol();
+
+            float[] color = GlUtils.colorFromElementName(element);
+
+            atoms[i*ATOM_DESCR_LEN + 3] = color[0];
+            atoms[i*ATOM_DESCR_LEN + 4] = color[1];
+            atoms[i*ATOM_DESCR_LEN + 5] = color[2];
+
+            atoms[i*ATOM_DESCR_LEN + 6] = GlUtils.radiusFromElementName(element);
+        }
+
+        atomsLoaded = false;
     }
 }

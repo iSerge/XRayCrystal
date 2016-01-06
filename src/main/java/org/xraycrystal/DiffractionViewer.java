@@ -3,15 +3,23 @@ package org.xraycrystal;
 import com.jogamp.opengl.GLCapabilities;
 import com.jogamp.opengl.GLProfile;
 import com.jogamp.opengl.awt.GLCanvas;
+import org.jmol.adapter.smarter.AtomSetCollection;
+import org.jmol.adapter.smarter.AtomSetCollectionReader;
+import org.jmol.adapter.smarter.SmarterJmolAdapter;
+import org.jmol.api.JmolAdapter;
 import org.xraycrystal.controls.DiffractionGLListener;
 import org.xraycrystal.controls.StructureGLListener;
 import org.xraycrystal.util.Utils;
 
 import javax.swing.*;
+import javax.vecmath.Point3f;
 import java.awt.*;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionAdapter;
+import java.io.*;
+import java.util.HashMap;
 import java.util.Hashtable;
+import java.util.Map;
 
 public class DiffractionViewer
 {
@@ -28,6 +36,8 @@ public class DiffractionViewer
     private GLCanvas diffractionView;
     private GLCanvas structureView;
 
+    private JmolAdapter adapter;
+
     public DiffractionViewer() {
 
         SwingUtilities.invokeLater(this::initUI);
@@ -35,13 +45,15 @@ public class DiffractionViewer
     }
 
     private void initUI() {
+        adapter = new SmarterJmolAdapter();
+
         GLCapabilities config = new GLCapabilities(GLProfile.get(GLProfile.GL4));
 
         diffractionView = new GLCanvas(config);
         DiffractionGLListener diffractionRenderer = new DiffractionGLListener();
         diffractionView.addGLEventListener(diffractionRenderer);
 
-        JFrame frame = new JFrame("DemoViewer");
+        JFrame frame = new JFrame("Diffraction viewer");
         frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
 
         GridBagLayout layout = new GridBagLayout();
@@ -100,6 +112,8 @@ public class DiffractionViewer
             diffractionView.display();
         });
 
+        JButton readFileBtn = new JButton("Open file...");
+
         c.insets.set(6,6,6,6);
 
         c.gridx = 0;
@@ -122,9 +136,31 @@ public class DiffractionViewer
         c.gridy = 3;
         frame.add(wlSlider, c);
 
+        c.gridy = 4;
+        frame.add(readFileBtn, c);
+
         frame.pack();
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
+
+        readFileBtn.addActionListener(e -> {
+            JFileChooser fc = new JFileChooser(new File("."));
+            fc.setMultiSelectionEnabled(false);
+            fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+
+            int retval = fc.showOpenDialog(frame);
+            if(JFileChooser.APPROVE_OPTION == retval){
+                String file = fc.getSelectedFile().getAbsolutePath();
+                AtomSetCollection atoms = loadFile(file);
+
+                structureRenderer.setAtoms(atoms);
+                diffractionRenderer.setAtoms(atoms);
+
+                structureView.display();
+                diffractionView.display();
+            }
+
+        });
 
         structureView.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
@@ -200,6 +236,30 @@ public class DiffractionViewer
         float[] diffMatrix = Utils.matMul( My, Mx, 3);
 
         atomsTransMat = Utils.matMul(diffMatrix, atomsTransMat, 3);
+    }
+
+    public AtomSetCollection loadFile(String name){
+        try {
+            BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(name)));
+
+            Map<String, Object> htParams = new HashMap<>();
+            htParams.put("spaceGroupIndex", -1);
+            htParams.put("lattice", new Point3f(1.0f, 1.0f, 1.0f));
+            htParams.put("packed", true);
+
+            AtomSetCollectionReader fileReader = (AtomSetCollectionReader) adapter.getAtomSetCollectionReader(name, null, reader, htParams);
+
+            Object result =  adapter.getAtomSetCollection(fileReader);
+            if(result instanceof AtomSetCollection){
+                return (AtomSetCollection) result;
+            } else if (result instanceof String) {
+                throw new IOError(new Error((String)result));
+            } else {
+                throw new AssertionError("Unhandled read result type");
+            }
+        } catch (FileNotFoundException e){
+            throw new IOError(e);
+        }
     }
 
     public static void main(String[] args)
