@@ -23,7 +23,6 @@ import java.util.Map;
 
 public class DiffractionViewer
 {
-
     private float[] atomsTransMat = {
             1f, 0f, 0f,
             0f, 1f, 0f,
@@ -38,10 +37,11 @@ public class DiffractionViewer
 
     private JmolAdapter adapter;
 
+    private JFileChooser fc;
+    private String file;
+
     public DiffractionViewer() {
-
         SwingUtilities.invokeLater(this::initUI);
-
     }
 
     private void initUI() {
@@ -72,10 +72,6 @@ public class DiffractionViewer
         JCheckBox phaseCB = new JCheckBox("Show phase");
 
         phaseCB.setSelected(diffractionRenderer.getPhaseShadind());
-        phaseCB.addItemListener(e -> {
-            diffractionRenderer.setPhaseShadind(((JCheckBox)e.getSource()).isSelected());
-            diffractionView.display();
-        });
 
         JPanel wlPanel = new JPanel();
         wlPanel.add(new JLabel("Wavelength, Å"));
@@ -96,6 +92,73 @@ public class DiffractionViewer
         wlSlider.setLabelTable(sliderLabels);
         wlSlider.setPaintLabels(true);
 
+        JPanel cellsNumberPanel = new JPanel();
+
+        cellsNumberPanel.add(new JLabel("Number of unit cells: "));
+
+        JLabel cellsNumberLbl = new JLabel("1");
+        cellsNumberPanel.add(cellsNumberLbl);
+
+        JSlider cellsNumberSlider = new JSlider(1, 10);
+        cellsNumberSlider.setValue(1);
+        cellsNumberSlider.setMajorTickSpacing(5);
+        cellsNumberSlider.setMinorTickSpacing(1);
+
+        Hashtable<Integer, JLabel> cellsSliderLabels = new Hashtable<>();
+        cellsSliderLabels.put(1, new JLabel("1"));
+        cellsSliderLabels.put(5, new JLabel("5"));
+        cellsSliderLabels.put(10, new JLabel("10"));
+        cellsNumberSlider.setLabelTable(cellsSliderLabels);
+        cellsNumberSlider.setPaintLabels(true);
+
+        JButton readFileBtn = new JButton("Open file...");
+
+        c.insets.set(6,6,6,6);
+
+        c.gridx = 0;
+        c.gridy = 0;
+        c.gridheight = 10;
+
+        frame.add(diffractionView, c);
+
+        c.insets.set(6,6,3,6);
+
+        c.gridx = 1;
+        c.gridy = 0;
+        c.gridheight = 1;
+        frame.add(structureView, c);
+
+        c.insets.set(3,6,3,6);
+
+        c.gridy = 1;
+        frame.add(phaseCB, c);
+
+        c.gridy = 2;
+        frame.add(wlPanel, c);
+
+        c.gridy = 3;
+        frame.add(wlSlider, c);
+
+        c.gridy = 4;
+        frame.add(cellsNumberPanel, c);
+
+        c.gridy = 5;
+        frame.add(cellsNumberSlider, c);
+
+        c.insets.set(3,6,6,6);
+
+        c.gridy = 6;
+        frame.add(readFileBtn, c);
+
+        frame.pack();
+        frame.setLocationRelativeTo(null);
+        frame.setVisible(true);
+
+        phaseCB.addItemListener(e -> {
+            diffractionRenderer.setPhaseShadind(((JCheckBox)e.getSource()).isSelected());
+            diffractionView.display();
+        });
+
         wlField.addActionListener(e -> {
             float l = Float.parseFloat(wlField.getText());
             wlSlider.setValue(mkSliderValue(l));
@@ -112,46 +175,33 @@ public class DiffractionViewer
             diffractionView.display();
         });
 
-        JButton readFileBtn = new JButton("Open file...");
+        cellsNumberSlider.addChangeListener(e ->{
+            int cellsNumber = cellsNumberSlider.getValue();
 
-        c.insets.set(6,6,6,6);
+            cellsNumberLbl.setText(String.valueOf(cellsNumber));
 
-        c.gridx = 0;
-        c.gridy = 0;
-        c.gridheight = 10;
+            if(null != file && !file.isEmpty()){
+                AtomSetCollection atoms = loadFile(file, cellsNumber);
 
-        frame.add(diffractionView, c);
+                structureRenderer.setAtoms(atoms);
+                diffractionRenderer.setAtoms(atoms);
 
-        c.gridx = 1;
-        c.gridy = 0;
-        c.gridheight = 1;
-        frame.add(structureView, c);
-
-        c.gridy = 1;
-        frame.add(phaseCB, c);
-
-        c.gridy = 2;
-        frame.add(wlPanel, c);
-
-        c.gridy = 3;
-        frame.add(wlSlider, c);
-
-        c.gridy = 4;
-        frame.add(readFileBtn, c);
-
-        frame.pack();
-        frame.setLocationRelativeTo(null);
-        frame.setVisible(true);
+                structureView.display();
+                diffractionView.display();
+            }
+        });
 
         readFileBtn.addActionListener(e -> {
-            JFileChooser fc = new JFileChooser(new File("."));
-            fc.setMultiSelectionEnabled(false);
-            fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            if(null == fc) {
+                fc = new JFileChooser(new File("."));
+                fc.setMultiSelectionEnabled(false);
+                fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            }
 
             int retval = fc.showOpenDialog(frame);
             if(JFileChooser.APPROVE_OPTION == retval){
-                String file = fc.getSelectedFile().getAbsolutePath();
-                AtomSetCollection atoms = loadFile(file);
+                file = fc.getSelectedFile().getAbsolutePath();
+                AtomSetCollection atoms = loadFile(file, cellsNumberSlider.getValue());
 
                 structureRenderer.setAtoms(atoms);
                 diffractionRenderer.setAtoms(atoms);
@@ -238,13 +288,13 @@ public class DiffractionViewer
         atomsTransMat = Utils.matMul(diffMatrix, atomsTransMat, 3);
     }
 
-    public AtomSetCollection loadFile(String name){
+    public AtomSetCollection loadFile(String name, int cellsNumber){
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(name)));
 
             Map<String, Object> htParams = new HashMap<>();
             htParams.put("spaceGroupIndex", -1);
-            htParams.put("lattice", new Point3f(1.0f, 1.0f, 1.0f));
+            htParams.put("lattice", new Point3f(cellsNumber, cellsNumber, cellsNumber));
             htParams.put("packed", true);
 
             AtomSetCollectionReader fileReader = (AtomSetCollectionReader) adapter.getAtomSetCollectionReader(name, null, reader, htParams);
