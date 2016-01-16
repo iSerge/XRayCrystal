@@ -28,7 +28,7 @@ kernel void initPhase(global float4* atoms,  global float2* phase, const unsigne
 }
 
 kernel void diffraction(global float4* atoms,  global float2* psi, write_only image2d_t img, const unsigned int n,
-                        const float lambda, const float R, const float L, const float amp, const bool phase)
+                        const float lambda, const float R, const float L, const float amp, const int phase)
 {
     int2 pos = (int2)(get_global_id(0), get_global_id(1));
     float x = (float)get_global_id(0);
