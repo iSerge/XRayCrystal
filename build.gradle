@@ -6,13 +6,30 @@ apply plugin: 'application'
 sourceCompatibility = 1.8
 version = '0.1'
 
-mainClassName = 'org.xraycrystal.Main'
+mainClassName = 'org.xraycrystal.DiffractionViewer'
 
 jar {
     manifest {
         attributes 'Implementation-Title': 'Simulation of Bragg X-ray diffraction in crystalline structures',
-                   'Implementation-Version': version
+                   'Implementation-Version': version,
+                   'Main-Class': 'org.xraycrystal.DiffractionViewer'
     }
+}
+
+//create a single Jar with all dependencies
+task fatJar(type: Jar) {
+    manifest {
+        attributes 'Implementation-Title': 'Simulation of Bragg X-ray diffraction in crystalline structures',
+                   'Implementation-Version': version,
+                   'Main-Class': 'org.xraycrystal.DiffractionViewer'
+    }
+    baseName = project.name + '-all'
+    from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } } {
+        exclude "META-INF/*.SF"
+        exclude "META-INF/*.DSA"
+        exclude "META-INF/*.RSA"
+    }
+    with jar
 }
 
 repositories {
