@@ -24,17 +24,19 @@ public class StructureGLListener implements GLEventListener {
 
     private int vbo;
     private int bufferId = -1;
+    private int vertArrayId = -1;
+    private int ixdArrayId = -1;
 
     private boolean atomsLoaded = false;
     private float[] atoms = {
          //  Coordinates            Color              Radius
-             0.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  100f,
-             3.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  100f,
+             0.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  1f,
+             3.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  2f,
     };
 
     private int atomCount = atoms.length / ATOM_DESCR_LEN;
 
-    private float[] lightDirection = {-0.5f, -0.5f, 1.0f};
+    private float[] lightDirection = {0.5f, 0.5f, -1.0f};
 
     private float[] modelMatrix = {
             1f, 0f, 0f, 0f,
@@ -57,11 +59,52 @@ public class StructureGLListener implements GLEventListener {
             0f, 0f, 0f, 1f
     };
 
+    final float X = 0.525731112119133606f;
+    final float Z = 0.850650808352039932f;
+
+    final float[] vertices = {
+             -X, 0.0f,    Z,
+              X, 0.0f,    Z,
+             -X, 0.0f,   -Z,
+              X, 0.0f,   -Z,
+           0.0f,    Z,    X,
+           0.0f,    Z,   -X,
+           0.0f,   -Z,    X,
+           0.0f,   -Z,   -X,
+              Z,    X, 0.0f,
+             -Z,    X, 0.0f,
+              Z,   -X, 0.0f,
+             -Z,   -X, 0.0f
+    };
+
+    final int[] indices = {
+           7,3,10,
+           10,3,8,
+           0,1,4,
+           8,1,10,
+           10,6,7,
+           6,11,7,
+           7,11,2,
+           2,5,3,
+           3,5,8,
+           10,1,6,
+           5,4,8,
+           4,1,8,
+           0,9,11,
+           11,6,0,
+           1,0,6,
+           4,9,0,
+           9,5,2,
+           2,11,9,
+           7,2,3,
+           4,5,9
+    };
+
     @Override
     public void init(GLAutoDrawable drawable) {
-        drawable.setGL(new DebugGL3(drawable.getGL().getGL3()));
+        drawable.setGL(new DebugGL4(drawable.getGL().getGL4()));
 
-        GL3 gl = drawable.getGL().getGL3();
+        GL4 gl = drawable.getGL().getGL4();
 
         gl.glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         gl.glClearDepth(1.0f);
@@ -73,8 +116,6 @@ public class StructureGLListener implements GLEventListener {
         gl.glBlendEquationSeparate(GL2.GL_FUNC_ADD, GL2.GL_FUNC_ADD);
         gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO);
 
-        gl.glEnable(GL4.GL_PROGRAM_POINT_SIZE);
-
         gl.glPixelStorei(GL2.GL_UNPACK_ALIGNMENT, 1);
 
         initShader(drawable);
@@ -83,21 +124,25 @@ public class StructureGLListener implements GLEventListener {
     }
 
     private void initBuffers(GLAutoDrawable drawable) {
-        GL3 gl = drawable.getGL().getGL3();
+        GL4 gl = drawable.getGL().getGL4();
 
-        int[] bufferIds = new int[1];
-        gl.glGenBuffers(1, bufferIds, 0);
+        int[] bufferIds = new int[3];
+        gl.glGenBuffers(3, bufferIds, 0);
         bufferId = bufferIds[0];
+        vertArrayId = bufferIds[1];
+        ixdArrayId = bufferIds[2];
 
         int[] vboArray = new int[1];
         gl.glGenVertexArrays(1, vboArray, 0);
         vbo = vboArray[0];
 
         gl.glBindVertexArray(vbo);
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, bufferId);
 
-        setAtoms(atoms ,drawable);
+        gl.glBindBuffer(GL2.GL_ELEMENT_ARRAY_BUFFER, ixdArrayId);
+        ByteBuffer iData = GlUtils.clone(indices);
+        gl.glBufferData(GL2.GL_ELEMENT_ARRAY_BUFFER, indices.length*Integer.BYTES, iData, GL2.GL_STATIC_DRAW);
 
+        int vertId = gl.glGetAttribLocation(programId, "vertex");
         int posId = gl.glGetAttribLocation(programId, "pos");
         int colorId = gl.glGetAttribLocation(programId, "color");
         int radiusId = gl.glGetAttribLocation(programId, "radius");
@@ -106,20 +151,54 @@ public class StructureGLListener implements GLEventListener {
         modelMatId = gl.glGetUniformLocation(programId, "M");
         projMatId = gl.glGetUniformLocation(programId, "P");
 
-        gl.glVertexAttribPointer(posId, 3, GL2.GL_FLOAT, false, 28/* ATOM_DESCR_LEN*sizeof(float) */, 0);
+        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, vertArrayId);
+        ByteBuffer vData = GlUtils.clone(vertices);
+        gl.glBufferData(GL2.GL_ARRAY_BUFFER, vertices.length*Float.BYTES, vData, GL2.GL_STATIC_DRAW);
+
+        gl.glBindVertexBuffer(0, vertArrayId, 0, 3*Float.BYTES);
+        gl.glVertexAttribFormat(vertId, 3, GL4.GL_FLOAT, false, 0);
+        gl.glVertexAttribBinding(vertId,0);
+        gl.glVertexBindingDivisor(0,0);
+
+        gl.glEnableVertexAttribArray(vertId);
+
+        setAtoms(atoms ,drawable);
+
+//        gl.glBindVertexBuffer(1, vertArrayId, 0,  ATOM_DESCR_LEN*Float.BYTES);
+//
+//        gl.glVertexBindingDivisor(1,1);
+//
+//        gl.glVertexAttribFormat(posId, 3, GL4.GL_FLOAT, false, 0);
+//        gl.glVertexAttribBinding(posId,1);
+//        gl.glEnableVertexAttribArray(posId);
+//
+//        gl.glVertexAttribFormat(colorId, 3, GL4.GL_FLOAT, false, 3*Float.BYTES);
+//        gl.glVertexAttribBinding(colorId,1);
+//        gl.glEnableVertexAttribArray(colorId);
+//
+//        gl.glVertexAttribFormat(radiusId, 1, GL4.GL_FLOAT, false, 6*Float.BYTES);
+//        gl.glVertexAttribBinding(radiusId,1);
+//        gl.glEnableVertexAttribArray(radiusId);
+
+        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, bufferId);
+
+        gl.glVertexAttribPointer(posId, 3, GL2.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 0);
+        gl.glVertexAttribDivisor(posId, 1);
         gl.glEnableVertexAttribArray(posId);
 
-        gl.glVertexAttribPointer(colorId, 3, GL2.GL_FLOAT, false, 28/* ATOM_DESCR_LEN*sizeof(float) */, 12 /* 3*sizeof(float) */);
+        gl.glVertexAttribPointer(colorId, 3, GL2.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 3*Float.BYTES);
+        gl.glVertexAttribDivisor(colorId, 1);
         gl.glEnableVertexAttribArray(colorId);
 
-        gl.glVertexAttribPointer(radiusId, 1, GL2.GL_FLOAT, false, 28/* ATOM_DESCR_LEN*sizeof(float) */, 24 /* 6*sizeof(float) */);
+        gl.glVertexAttribPointer(radiusId, 1, GL2.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 6*Float.BYTES);
+        gl.glVertexAttribDivisor(radiusId, 1);
         gl.glEnableVertexAttribArray(radiusId);
 
         gl.glBindVertexArray(0);
     }
 
     private void setAtoms(float[] atoms, GLAutoDrawable drawable) {
-        GL3 gl = drawable.getGL().getGL3();
+        GL4 gl = drawable.getGL().getGL4();
 
         atomCount = atoms.length / ATOM_DESCR_LEN;
 
@@ -138,16 +217,13 @@ public class StructureGLListener implements GLEventListener {
 
         float maxDelta = Math.max(max[0]-min[0], Math.max(max[1]-min[1], max[2]-min[2]));
 
-        for(int i = 0; i < atomCount; ++i){
-            atoms[i * ATOM_DESCR_LEN + 6] /= Math.sqrt(maxDelta);
-        }
-
         projectionMatrix[15] = maxDelta;
 
         modelMatrix[12] = -center[0]/atomCount;
         modelMatrix[13] = -center[1]/atomCount;
         modelMatrix[14] = -center[2]/atomCount;
 
+        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, bufferId);
         ByteBuffer data = GlUtils.clone(atoms);
         gl.glBufferData(GL2.GL_ARRAY_BUFFER, atoms.length*4, data, GL2.GL_STATIC_DRAW);
 
@@ -156,10 +232,10 @@ public class StructureGLListener implements GLEventListener {
 
     public void initShader (GLAutoDrawable d)
     {
-        GL3 gl = d.getGL().getGL3(); // get the OpenGL 3 graphics context
+        GL4 gl = d.getGL().getGL4(); // get the OpenGL 3 graphics context
 
-        vertId = gl.glCreateShader(GL2.GL_VERTEX_SHADER);
-        fragId = gl.glCreateShader(GL2.GL_FRAGMENT_SHADER);
+        vertId = gl.glCreateShader(GL4.GL_VERTEX_SHADER);
+        fragId = gl.glCreateShader(GL4.GL_FRAGMENT_SHADER);
 
         String sourceVS = Utils.readResource("/org/xraycrystal/struct.vertex");
         String sourceFS = Utils.readResource("/org/xraycrystal/struct.fragment");
@@ -172,20 +248,15 @@ public class StructureGLListener implements GLEventListener {
 
         // compile the shader
         gl.glCompileShader(vertId);
-        gl.glCompileShader(fragId);
-
         GlUtils.printShaderInfoLog(d, vertId);
-        GlUtils.printShaderInfoLog(d, fragId);
 
+        gl.glCompileShader(fragId);
+        GlUtils.printShaderInfoLog(d, fragId);
 
         // create program and attach shaders
         programId = gl.glCreateProgram();
         gl.glAttachShader(programId, vertId);
         gl.glAttachShader(programId, fragId);
-
-        // "out_color" is a user-provided OUT variable of the fragment shader.
-        // Its output is bound to the first color buffer in the framebuffer
-        gl.glBindFragDataLocation(programId, 0, "outColor");
 
         // link the program
         gl.glLinkProgram(programId);
@@ -195,7 +266,7 @@ public class StructureGLListener implements GLEventListener {
 
     @Override
     public void dispose(GLAutoDrawable drawable) {
-        GL3 gl = drawable.getGL().getGL3();
+        GL4 gl = drawable.getGL().getGL4();
 
         gl.glBindVertexArray(0);
         gl.glUseProgram(0);
@@ -208,14 +279,14 @@ public class StructureGLListener implements GLEventListener {
         gl.glDeleteProgram(programId);
 
         gl.glDeleteVertexArrays(1, new int[] {vbo}, 0);
-        gl.glDeleteBuffers(1, new int[] {bufferId}, 0);
+        gl.glDeleteBuffers(3, new int[] {bufferId, ixdArrayId, vertArrayId}, 0);
     }
 
     @Override
     public void display(GLAutoDrawable drawable) {
-        GL3 gl = drawable.getGL().getGL3();
+        GL4 gl = drawable.getGL().getGL4();
 
-        gl.glClear(GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
+        gl.glClear(GL4.GL_COLOR_BUFFER_BIT | GL4.GL_DEPTH_BUFFER_BIT);
 
         if(!atomsLoaded){
             setAtoms(atoms, drawable);
@@ -223,6 +294,7 @@ public class StructureGLListener implements GLEventListener {
 
         gl.glUseProgram(programId);
         gl.glBindVertexArray(vbo);
+        gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, ixdArrayId);
 
         gl.glUniform3fv(lightId, 1, lightDirection, 0);
 
@@ -231,12 +303,12 @@ public class StructureGLListener implements GLEventListener {
         gl.glUniformMatrix4fv(modelMatId, 1, false, FloatBuffer.wrap(modelMatrix));
         gl.glUniformMatrix4fv(projMatId, 1, false, FloatBuffer.wrap(projectionMatrix));
 
-        gl.glDrawArrays(GL2.GL_POINTS, 0, atomCount);
+        gl.glDrawElementsInstanced(GL4.GL_TRIANGLES, indices.length, GL4.GL_UNSIGNED_INT, 0, atomCount);
     }
 
     @Override
     public void reshape(GLAutoDrawable drawable, int x, int y, int width, int height) {
-        GL3 gl = drawable.getGL().getGL3();
+        GL4 gl = drawable.getGL().getGL4();
         gl.glViewport(0, 0, width, height);
     }
 

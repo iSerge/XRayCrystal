@@ -55,44 +55,56 @@ public class GlUtils {
         return direct;
     }
 
+    public static ByteBuffer clone(int[] data)
+    {
+        int         len    = data.length;
+        ByteBuffer  direct = ByteBuffer.allocateDirect(len*4);
+        direct.order(ByteOrder.nativeOrder()); // very important!
+        for (int i=0; i<len; ++i) {
+            direct.putInt(data[i]);
+        }
+        direct.rewind();
+        return direct;
+    }
+
     private static Map<String, Float> elements = new HashMap<>(115);
     static {
-        elements.put("H",  0.46f*100);
-        elements.put("He", 1.22f*100);
-        elements.put("Li", 1.57f*100);
-        elements.put("Be", 1.12f*100);
-        elements.put("B",  0.81f*100);
-        elements.put("C",  0.77f*100);
-        elements.put("N",  0.74f*100);
-        elements.put("O",  0.74f*100);
-        elements.put("F",  0.72f*100);
-        elements.put("Ne", 1.60f*100);
-        elements.put("Na", 1.91f*100);
-        elements.put("Mg", 1.60f*100);
-        elements.put("Al", 1.43f*100);
-        elements.put("Si", 1.18f*100);
-        elements.put("P",  1.10f*100);
-        elements.put("S",  1.04f*100);
-        elements.put("Cl", 0.99f*100);
-        elements.put("Ar", 1.92f*100);
-        elements.put("K",  2.35f*100);
-        elements.put("Ca", 1.97f*100);
-        elements.put("Sc", 1.64f*100);
-        elements.put("Ti", 1.47f*100);
-        elements.put("V",  1.35f*100);
-        elements.put("Cr", 1.29f*100);
-        elements.put("Mn", 1.37f*100);
-        elements.put("Fe", 1.26f*100);
-        elements.put("Co", 1.25f*100);
-        elements.put("Ni", 1.25f*100);
-        elements.put("Cu", 1.28f*100);
-        elements.put("Zn", 1.37f*100);
-        elements.put("Ga", 1.53f*100);
-        elements.put("Ge", 1.22f*100);
-        elements.put("As", 1.21f*100);
-        elements.put("Se", 1.04f*100);
-        elements.put("Br", 1.14f*100);
-        elements.put("Au", 1.44f*100);
+        elements.put("H",  0.46f);
+        elements.put("He", 1.22f);
+        elements.put("Li", 1.57f);
+        elements.put("Be", 1.12f);
+        elements.put("B",  0.81f);
+        elements.put("C",  0.77f);
+        elements.put("N",  0.74f);
+        elements.put("O",  0.74f);
+        elements.put("F",  0.72f);
+        elements.put("Ne", 1.60f);
+        elements.put("Na", 1.91f);
+        elements.put("Mg", 1.60f);
+        elements.put("Al", 1.43f);
+        elements.put("Si", 1.18f);
+        elements.put("P",  1.10f);
+        elements.put("S",  1.04f);
+        elements.put("Cl", 0.99f);
+        elements.put("Ar", 1.92f);
+        elements.put("K",  2.35f);
+        elements.put("Ca", 1.97f);
+        elements.put("Sc", 1.64f);
+        elements.put("Ti", 1.47f);
+        elements.put("V",  1.35f);
+        elements.put("Cr", 1.29f);
+        elements.put("Mn", 1.37f);
+        elements.put("Fe", 1.26f);
+        elements.put("Co", 1.25f);
+        elements.put("Ni", 1.25f);
+        elements.put("Cu", 1.28f);
+        elements.put("Zn", 1.37f);
+        elements.put("Ga", 1.53f);
+        elements.put("Ge", 1.22f);
+        elements.put("As", 1.21f);
+        elements.put("Se", 1.04f);
+        elements.put("Br", 1.14f);
+        elements.put("Au", 1.44f);
     }
 
     private static Map<String, float[]> colors = new HashMap<>(115);

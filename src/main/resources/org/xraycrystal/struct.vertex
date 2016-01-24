@@ -4,14 +4,16 @@ uniform mat4 P;
 uniform mat4 T;
 uniform mat4 M;
 
+in vec3 vertex;
 in vec3 pos;
 in vec3 color;
 in float radius;
 
 out vec3 vColor;
+smooth out vec3 normal;
 
 void main() {
-    gl_Position = P * T * M * vec4(pos, 1.0);
+    gl_Position = P * T * M * vec4((pos + vertex*radius), 1.0);
+    normal = (T * vec4(vertex, 1.0)).xyz;
     vColor = color;
-    gl_PointSize = radius;
 }

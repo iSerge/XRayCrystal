@@ -3,7 +3,7 @@
 uniform vec3 lightDir;
 
 in vec3 vColor;
-//smooth in vec3 normal;
+smooth in vec3 normal;
 
 out vec4 outColor;
 
@@ -13,24 +13,17 @@ vec4 light_specular=vec4(1.0);
 
 void main() {
     vec3 L = normalize(lightDir);
-    // calculate normal from texture coordinates
-    vec3 N;
-    N.xy = gl_PointCoord* 2.0 - vec2(1.0);
-    float mag = dot(N.xy, N.xy);
-    if (mag > 1.0) discard;   // kill pixels outside circle
-    N.z = sqrt(1.0-mag);
 
     // calculate lighting
     vec4 ambient = vec4(vColor*0.4, 1.0);
 
-    float diffuse = max(0.0, dot(N,L));
+    float diffuse = max(0.0, dot(normal,L));
     vec4 iDiff = vec4(vColor, 1.0) * clamp(diffuse, 0.0, 1.0);
 
-
-    vec3 eye = vec3 (0.0, 0.0, 1.0);
-    vec3 R = normalize(-reflect(L,N));
+    vec3 eye = vec3 (0.0, 0.0, -1.0);
+    vec3 R = normalize(-reflect(L,normal));
     float spec = pow(max(dot(R,eye),0.0), Ns);
-    vec4 S = light_specular*mat_specular* spec;
+    vec4 S = light_specular * mat_specular * spec;
 
     outColor = ambient + iDiff + S;
 }
