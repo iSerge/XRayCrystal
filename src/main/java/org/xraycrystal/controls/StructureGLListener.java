@@ -164,22 +164,6 @@ public class StructureGLListener implements GLEventListener {
 
         setAtoms(atoms ,drawable);
 
-//        gl.glBindVertexBuffer(1, vertArrayId, 0,  ATOM_DESCR_LEN*Float.BYTES);
-//
-//        gl.glVertexBindingDivisor(1,1);
-//
-//        gl.glVertexAttribFormat(posId, 3, GL4.GL_FLOAT, false, 0);
-//        gl.glVertexAttribBinding(posId,1);
-//        gl.glEnableVertexAttribArray(posId);
-//
-//        gl.glVertexAttribFormat(colorId, 3, GL4.GL_FLOAT, false, 3*Float.BYTES);
-//        gl.glVertexAttribBinding(colorId,1);
-//        gl.glEnableVertexAttribArray(colorId);
-//
-//        gl.glVertexAttribFormat(radiusId, 1, GL4.GL_FLOAT, false, 6*Float.BYTES);
-//        gl.glVertexAttribBinding(radiusId,1);
-//        gl.glEnableVertexAttribArray(radiusId);
-
         gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, bufferId);
 
         gl.glVertexAttribPointer(posId, 3, GL2.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 0);
