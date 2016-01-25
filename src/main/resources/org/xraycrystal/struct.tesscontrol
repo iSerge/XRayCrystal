@@ -18,15 +18,23 @@ out float tcRadius[];
 
 void main()
 {
-    float tessLevel = 5.0;
-    //FIXME calculate tess level
-
     tcVertex[ID] = vVertex[ID];
     tcPosition[ID] = vPosition[ID];
     tcColor[ID] = vColor[ID];
     tcRadius[ID] = vRadius[ID];
 
     if (ID == 0) {
+        float tessLevel = 5.0;
+        float r = (P * vec4(vRadius[0], 1.0, 1.0, 1.0)).x;
+
+        if (r < 0.1) {
+            tessLevel = 1.0;
+        } else if (r < 0.2) {
+            tessLevel = 2.0;
+        } else if (r < 0.5) {
+            tessLevel = 3.0;
+        }
+
         gl_TessLevelInner[0] = tessLevel;
         gl_TessLevelOuter[0] = tessLevel;
         gl_TessLevelOuter[1] = tessLevel;

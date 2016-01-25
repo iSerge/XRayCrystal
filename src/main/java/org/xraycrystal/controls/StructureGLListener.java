@@ -34,7 +34,7 @@ public class StructureGLListener implements GLEventListener {
     private float[] atoms = {
          //  Coordinates            Color              Radius
              0.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  1f,
-             3.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  2f,
+             3.00f, 0.00f, 0.00f,   0.8f, 0.8f, 0.8f,  1f,
     };
 
     private int atomCount = atoms.length / ATOM_DESCR_LEN;
