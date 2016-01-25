@@ -121,6 +121,8 @@ public class StructureGLListener implements GLEventListener {
 
         gl.glPixelStorei(GL2.GL_UNPACK_ALIGNMENT, 1);
 
+        gl.glEnable(GL4.GL_MULTISAMPLE);
+
         initShader(drawable);
 
         initBuffers(drawable);

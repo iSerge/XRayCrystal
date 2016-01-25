@@ -64,6 +64,8 @@ public class DiffractionViewer
         int bufferHeight = 512;
         diffractionView.setPreferredSize(new Dimension(bufferWidth, bufferHeight));
 
+        config.setSampleBuffers(true);
+        config.setNumSamples(4);
         structureView = new GLCanvas(config);
         StructureGLListener structureRenderer = new StructureGLListener();
         structureView.addGLEventListener(structureRenderer);
