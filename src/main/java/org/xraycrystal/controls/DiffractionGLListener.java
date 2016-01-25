@@ -23,7 +23,7 @@ public class DiffractionGLListener implements GLEventListener {
 
     private float lambda = 0.5f;
     private static final float R = 1e-7f;
-    private static final float L = 3e-7f;
+    private static final float L = 1e-7f;
 
     private float amp = 1f;
 

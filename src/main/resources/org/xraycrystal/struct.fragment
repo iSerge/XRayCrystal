@@ -1,9 +1,9 @@
-#version 330 core
+#version 430 core
 
 uniform vec3 lightDir;
 
-in vec3 vColor;
-smooth in vec3 normal;
+in vec3 gColor;
+smooth in vec3 gNormal;
 
 out vec4 outColor;
 
@@ -15,13 +15,13 @@ void main() {
     vec3 L = normalize(lightDir);
 
     // calculate lighting
-    vec4 ambient = vec4(vColor*0.4, 1.0);
+    vec4 ambient = vec4(gColor*0.4, 1.0);
 
-    float diffuse = max(0.0, dot(normal,L));
-    vec4 iDiff = vec4(vColor, 1.0) * clamp(diffuse, 0.0, 1.0);
+    float diffuse = max(0.0, dot(gNormal,L));
+    vec4 iDiff = vec4(gColor, 1.0) * clamp(diffuse, 0.0, 1.0);
 
     vec3 eye = vec3 (0.0, 0.0, -1.0);
-    vec3 R = normalize(-reflect(L,normal));
+    vec3 R = normalize(-reflect(L,gNormal));
     float spec = pow(max(dot(R,eye),0.0), Ns);
     vec4 S = light_specular * mat_specular * spec;
 

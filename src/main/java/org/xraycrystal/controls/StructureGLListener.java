@@ -15,6 +15,9 @@ public class StructureGLListener implements GLEventListener {
     public static final int ATOM_DESCR_LEN = 7;
     private int programId;
     private int vertId;
+    private int tescId;
+    private int teseId;
+    private int geomId;
     private int fragId;
 
     private int lightId;
@@ -191,11 +194,12 @@ public class StructureGLListener implements GLEventListener {
         float[] max = {-1e20f, -1e20f, -1e20f};
 
         for(int i = 0; i < atomCount; ++i){
+            float r = atoms[i * ATOM_DESCR_LEN + 6];
             for(int j = 0; j < 3; ++j) {
                 float coord = atoms[i * ATOM_DESCR_LEN + j];
                 center[j] += coord;
-                min[j] = Math.min(min[j], coord);
-                max[j] = Math.max(max[j], coord);
+                min[j] = Math.min(min[j], Math.min(coord+r,coord-r));
+                max[j] = Math.max(max[j], Math.max(coord+r,coord-r));
             }
         }
 
@@ -219,20 +223,41 @@ public class StructureGLListener implements GLEventListener {
         GL4 gl = d.getGL().getGL4(); // get the OpenGL 3 graphics context
 
         vertId = gl.glCreateShader(GL4.GL_VERTEX_SHADER);
+        tescId = gl.glCreateShader(GL4.GL_TESS_CONTROL_SHADER);
+        teseId = gl.glCreateShader(GL4.GL_TESS_EVALUATION_SHADER);
+        geomId = gl.glCreateShader(GL4.GL_GEOMETRY_SHADER);
         fragId = gl.glCreateShader(GL4.GL_FRAGMENT_SHADER);
 
         String sourceVS = Utils.readResource("/org/xraycrystal/struct.vertex");
+        String sourceTC = Utils.readResource("/org/xraycrystal/struct.tesscontrol");
+        String sourceTE = Utils.readResource("/org/xraycrystal/struct.tesseval");
+        String sourceGS = Utils.readResource("/org/xraycrystal/struct.geometry");
         String sourceFS = Utils.readResource("/org/xraycrystal/struct.fragment");
 
         String[] vs = { sourceVS };
+        String[] tcs = { sourceTC };
+        String[] tes = { sourceTE };
+        String[] gs = { sourceGS };
         String[] fs = { sourceFS };
 
         gl.glShaderSource(vertId, 1, vs, null, 0);
+        gl.glShaderSource(tescId, 1, tcs, null, 0);
+        gl.glShaderSource(teseId, 1, tes, null, 0);
+        gl.glShaderSource(geomId, 1, gs, null, 0);
         gl.glShaderSource(fragId, 1, fs, null, 0);
 
         // compile the shader
         gl.glCompileShader(vertId);
         GlUtils.printShaderInfoLog(d, vertId);
+
+        gl.glCompileShader(tescId);
+        GlUtils.printShaderInfoLog(d, tescId);
+
+        gl.glCompileShader(teseId);
+        GlUtils.printShaderInfoLog(d, teseId);
+
+        gl.glCompileShader(geomId);
+        GlUtils.printShaderInfoLog(d, geomId);
 
         gl.glCompileShader(fragId);
         GlUtils.printShaderInfoLog(d, fragId);
@@ -240,6 +265,9 @@ public class StructureGLListener implements GLEventListener {
         // create program and attach shaders
         programId = gl.glCreateProgram();
         gl.glAttachShader(programId, vertId);
+        gl.glAttachShader(programId, tescId);
+        gl.glAttachShader(programId, teseId);
+        gl.glAttachShader(programId, geomId);
         gl.glAttachShader(programId, fragId);
 
         // link the program
@@ -256,10 +284,16 @@ public class StructureGLListener implements GLEventListener {
         gl.glUseProgram(0);
 
         gl.glDetachShader(programId, vertId);
+        gl.glDetachShader(programId, tescId);
+        gl.glDetachShader(programId, teseId);
+        gl.glDetachShader(programId, geomId);
         gl.glDetachShader(programId, fragId);
 
         gl.glDeleteShader(vertId);
+        gl.glDeleteShader(tescId);
+        gl.glDeleteShader(teseId);
         gl.glDeleteShader(fragId);
+        gl.glDeleteShader(geomId);
         gl.glDeleteProgram(programId);
 
         gl.glDeleteVertexArrays(1, new int[] {vbo}, 0);
@@ -287,7 +321,8 @@ public class StructureGLListener implements GLEventListener {
         gl.glUniformMatrix4fv(modelMatId, 1, false, FloatBuffer.wrap(modelMatrix));
         gl.glUniformMatrix4fv(projMatId, 1, false, FloatBuffer.wrap(projectionMatrix));
 
-        gl.glDrawElementsInstanced(GL4.GL_TRIANGLES, indices.length, GL4.GL_UNSIGNED_INT, 0, atomCount);
+        gl.glPatchParameteri(GL4.GL_PATCH_VERTICES, 3);
+        gl.glDrawElementsInstanced(GL4.GL_PATCHES, indices.length, GL4.GL_UNSIGNED_INT, 0, atomCount);
     }
 
     @Override
