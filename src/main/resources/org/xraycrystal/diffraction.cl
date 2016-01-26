@@ -62,13 +62,13 @@ kernel void diffraction(global float4* atoms,  global float2* psi, write_only im
         v = atan(I.y/I.x);
     } else {
         v = amp*(I.x*I.x + I.y*I.y);
-        v = 1.0f - clamp(v, 0.0f, 1.0f);
+        //v = 1.0f - clamp(v, 0.0f, 1.0f);
     }
 
     float4 color;
 
     if(phase){
-        color = (float4)(sin(v), sin(v + _2PI/3), sin(v + 4*PI/3), clamp(sqrt(I.x*I.x + I.y*I.y), 0.0f, 1.0f));
+        color = (float4)(sin(v), sin(v + _2PI/3), sin(v + 4*PI/3), sqrt(I.x*I.x + I.y*I.y));
         color = color*color;
     } else {
         color = (float4)(v, v, v, 1.0f);

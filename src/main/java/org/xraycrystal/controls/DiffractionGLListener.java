@@ -190,8 +190,8 @@ public class DiffractionGLListener implements GLEventListener {
             gl.glTexParameteri(GL2.GL_TEXTURE_2D, GL2.GL_TEXTURE_WRAP_T,
                     GL2.GL_CLAMP_TO_EDGE);
             // set image size only
-            gl.glTexImage2D   (GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA, bufferWidth, bufferHeight, 0,
-                    GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, null);
+            gl.glTexImage2D   (GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA32F, bufferWidth, bufferHeight, 0,
+                    GL2.GL_RGBA, GL2.GL_FLOAT, null);
             gl.glBindTexture  (GL2.GL_TEXTURE_2D, 0);
             // initialize OpenCL, creating a context for the given GL object
             initCL(gl);
