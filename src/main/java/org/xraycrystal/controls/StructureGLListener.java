@@ -112,14 +112,14 @@ public class StructureGLListener implements GLEventListener {
         gl.glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         gl.glClearDepth(1.0f);
 
-        gl.glEnable(GL2.GL_DEPTH_TEST);
-        gl.glDepthFunc(GL2.GL_LEQUAL);
+        gl.glEnable(GL4.GL_DEPTH_TEST);
+        gl.glDepthFunc(GL4.GL_LEQUAL);
 
-        gl.glEnable(GL2.GL_BLEND);
-        gl.glBlendEquationSeparate(GL2.GL_FUNC_ADD, GL2.GL_FUNC_ADD);
-        gl.glBlendFuncSeparate(GL2.GL_SRC_ALPHA, GL2.GL_ONE_MINUS_SRC_ALPHA, GL2.GL_ONE, GL2.GL_ZERO);
+        gl.glEnable(GL4.GL_BLEND);
+        gl.glBlendEquationSeparate(GL4.GL_FUNC_ADD, GL4.GL_FUNC_ADD);
+        gl.glBlendFuncSeparate(GL4.GL_SRC_ALPHA, GL4.GL_ONE_MINUS_SRC_ALPHA, GL4.GL_ONE, GL4.GL_ZERO);
 
-        gl.glPixelStorei(GL2.GL_UNPACK_ALIGNMENT, 1);
+        gl.glPixelStorei(GL4.GL_UNPACK_ALIGNMENT, 1);
 
         gl.glEnable(GL4.GL_MULTISAMPLE);
 
@@ -143,47 +143,42 @@ public class StructureGLListener implements GLEventListener {
 
         gl.glBindVertexArray(vbo);
 
-        gl.glBindBuffer(GL2.GL_ELEMENT_ARRAY_BUFFER, ixdArrayId);
+        gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, ixdArrayId);
         ByteBuffer iData = GlUtils.clone(indices);
-        gl.glBufferData(GL2.GL_ELEMENT_ARRAY_BUFFER, indices.length*Integer.BYTES, iData, GL2.GL_STATIC_DRAW);
+        gl.glBufferData(GL4.GL_ELEMENT_ARRAY_BUFFER, indices.length*Integer.BYTES, iData, GL4.GL_STATIC_DRAW);
 
-        int vertId = gl.glGetAttribLocation(programId, "vertex");
-        int posId = gl.glGetAttribLocation(programId, "pos");
-        int colorId = gl.glGetAttribLocation(programId, "color");
-        int radiusId = gl.glGetAttribLocation(programId, "radius");
+        int vertAttrId = gl.glGetAttribLocation(programId, "vertex");
+        int posAttrId = gl.glGetAttribLocation(programId, "pos");
+        int colorAttrId = gl.glGetAttribLocation(programId, "color");
+        int radiusAttrId = gl.glGetAttribLocation(programId, "radius");
         lightId = gl.glGetUniformLocation(programId, "lightDir");
         transId = gl.glGetUniformLocation(programId, "T");
         modelMatId = gl.glGetUniformLocation(programId, "M");
         projMatId = gl.glGetUniformLocation(programId, "P");
 
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, vertArrayId);
+        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, vertArrayId);
         ByteBuffer vData = GlUtils.clone(vertices);
-        gl.glBufferData(GL2.GL_ARRAY_BUFFER, vertices.length*Float.BYTES, vData, GL2.GL_STATIC_DRAW);
+        gl.glBufferData(GL4.GL_ARRAY_BUFFER, vertices.length*Float.BYTES, vData, GL4.GL_STATIC_DRAW);
 
-//        gl.glBindVertexBuffer(0, vertArrayId, 0, 3*Float.BYTES);
-//        gl.glVertexAttribFormat(vertId, 3, GL4.GL_FLOAT, false, 0);
-//        gl.glVertexAttribBinding(vertId,0);
-//        gl.glVertexBindingDivisor(0,0);
-
-        gl.glVertexAttribPointer(vertId, 3, GL4.GL_FLOAT, false, 3*Float.BYTES, 0);
-        gl.glVertexAttribDivisor(vertId, 1);
-        gl.glEnableVertexAttribArray(vertId);
+        gl.glVertexAttribPointer(vertAttrId, 3, GL4.GL_FLOAT, false, 3*Float.BYTES, 0);
+        gl.glVertexAttribDivisor(vertAttrId, 0);
+        gl.glEnableVertexAttribArray(vertAttrId);
 
         setAtoms(atoms ,drawable);
 
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, bufferId);
+        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bufferId);
 
-        gl.glVertexAttribPointer(posId, 3, GL2.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 0);
-        gl.glVertexAttribDivisor(posId, 1);
-        gl.glEnableVertexAttribArray(posId);
+        gl.glVertexAttribPointer(posAttrId, 3, GL4.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 0);
+        gl.glVertexAttribDivisor(posAttrId, 1);
+        gl.glEnableVertexAttribArray(posAttrId);
 
-        gl.glVertexAttribPointer(colorId, 3, GL2.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 3*Float.BYTES);
-        gl.glVertexAttribDivisor(colorId, 1);
-        gl.glEnableVertexAttribArray(colorId);
+        gl.glVertexAttribPointer(colorAttrId, 3, GL4.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 3*Float.BYTES);
+        gl.glVertexAttribDivisor(colorAttrId, 1);
+        gl.glEnableVertexAttribArray(colorAttrId);
 
-        gl.glVertexAttribPointer(radiusId, 1, GL2.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 6*Float.BYTES);
-        gl.glVertexAttribDivisor(radiusId, 1);
-        gl.glEnableVertexAttribArray(radiusId);
+        gl.glVertexAttribPointer(radiusAttrId, 1, GL4.GL_FLOAT, false, ATOM_DESCR_LEN*Float.BYTES, 6*Float.BYTES);
+        gl.glVertexAttribDivisor(radiusAttrId, 1);
+        gl.glEnableVertexAttribArray(radiusAttrId);
 
         gl.glBindVertexArray(0);
     }
@@ -215,9 +210,9 @@ public class StructureGLListener implements GLEventListener {
         modelMatrix[13] = -center[1]/atomCount;
         modelMatrix[14] = -center[2]/atomCount;
 
-        gl.glBindBuffer(GL2.GL_ARRAY_BUFFER, bufferId);
+        gl.glBindBuffer(GL4.GL_ARRAY_BUFFER, bufferId);
         ByteBuffer data = GlUtils.clone(atoms);
-        gl.glBufferData(GL2.GL_ARRAY_BUFFER, atoms.length*4, data, GL2.GL_STATIC_DRAW);
+        gl.glBufferData(GL4.GL_ARRAY_BUFFER, atoms.length*4, data, GL4.GL_STATIC_DRAW);
 
         atomsLoaded = true;
     }
@@ -316,6 +311,7 @@ public class StructureGLListener implements GLEventListener {
 
         gl.glUseProgram(programId);
         gl.glBindVertexArray(vbo);
+
         gl.glBindBuffer(GL4.GL_ELEMENT_ARRAY_BUFFER, ixdArrayId);
 
         gl.glUniform3fv(lightId, 1, lightDirection, 0);
@@ -327,6 +323,9 @@ public class StructureGLListener implements GLEventListener {
 
         gl.glPatchParameteri(GL4.GL_PATCH_VERTICES, 3);
         gl.glDrawElementsInstanced(GL4.GL_PATCHES, indices.length, GL4.GL_UNSIGNED_INT, 0, atomCount);
+
+        gl.glBindVertexArray(0);
+        gl.glUseProgram(0);
     }
 
     @Override
