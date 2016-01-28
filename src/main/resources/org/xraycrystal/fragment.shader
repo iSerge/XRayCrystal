@@ -6,12 +6,16 @@ in  vec2 out_texcoord;
 
 out vec4 out_color;
 
+float exposure = 1.0;
+
 void main(void) {
     const float gamma = 2.2;
     vec4 hdrColor = texture(tex, out_texcoord);
 
     // Reinhard tone mapping
-    vec3 mapped = hdrColor.rgb / (hdrColor.rgb + 1.0);
+    //vec3 mapped = hdrColor.rgb / (hdrColor.rgb + 1.0);
+    // Exposure tone mapping
+    vec3 mapped = vec3(1.0) - exp(-hdrColor.rgb * exposure);
     // Gamma correction
     mapped = pow(mapped, vec3(1.0 / gamma));
 
