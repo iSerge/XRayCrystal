@@ -41,18 +41,28 @@ kernel void diffraction(global float4* atoms,  global float2* psi, write_only im
 
     float2 I = (float2)(0.0f, 0.0f);
 
+    float2 u, t;
+    float2 c = (float2)(0.0f, 0.0f);
+
     float Lx = L*(x/width - 0.5f);
     float Ly = L*(y/height - 0.5f);
 
     for(size_t i = 0; i < n; ++i){
-        float3 atom = (float3)(atoms[i].x, atoms[i].y, atoms[i].z);
+        float3 atom = atoms[i].xyz;
         float r = distance((float3)(Lx,Ly,R), atom);
         float phase = fmod(k*r, _2PI);
 
-        float c;
-        float s = sincos(phase, &c);
-        I.s0 +=  psi[i].x*c - psi[i].y*s;
-        I.s1 +=  psi[i].y*c + psi[i].x*s;
+        float co;
+        float si = sincos(phase, &co);
+
+        float2 j;
+        j.s0 +=  psi[i].x*co - psi[i].y*si;
+        j.s1 +=  psi[i].y*co + psi[i].x*si;
+
+        u = j - c;
+        t = I + u;
+        c = (t - I) - u;
+        I = t;
     }
     I /= n;
 
