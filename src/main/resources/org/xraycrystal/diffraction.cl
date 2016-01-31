@@ -1,3 +1,14 @@
+#ifdef cl_khr_fp64
+#pragma OPENCL EXTENSION cl_khr_fp64 : enable
+#elif defined(cl_amd_fp64)
+#pragma OPENCL EXTENSION cl_amd_fp64 : enable
+#else
+#define double float
+#define double2 float2
+#define double3 float3
+#define double4 float4
+#endif
+
 #define  PI 3.14159265359f
 #define _2PI 6.28318530718f
 
