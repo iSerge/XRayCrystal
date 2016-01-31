@@ -29,6 +29,8 @@ public class DiffractionGLListener implements GLEventListener {
 
     private int phase = 0;
 
+    private float exposure = 1.0f;
+
     private float centerX;
     private float centerY;
     private float centerZ;
@@ -94,6 +96,7 @@ public class DiffractionGLListener implements GLEventListener {
     private CLBuffer<FloatBuffer> transAtoms;
     private CLBuffer<FloatBuffer> psi;
 
+    private boolean needCalcDiffraction = true;
 
     public boolean getPhaseShadind() {
         return 0 != phase;
@@ -104,6 +107,7 @@ public class DiffractionGLListener implements GLEventListener {
         if(null != diffractionKernel){
             diffractionKernel.setArg(8, phase);
         }
+        needCalcDiffraction = true;
     }
 
     public float getLambda() {
@@ -112,6 +116,15 @@ public class DiffractionGLListener implements GLEventListener {
 
     public void setLambda(float lambda) {
         this.lambda = lambda;
+        needCalcDiffraction = true;
+    }
+
+    public float getExposure() {
+        return exposure;
+    }
+
+    public void setExposure(float exposure) {
+        this.exposure = exposure;
     }
 
     @Override
@@ -327,7 +340,9 @@ public class DiffractionGLListener implements GLEventListener {
     {
         GL3 gl = drawable.getGL().getGL3();
 
-        computeCL(gl);
+        if(needCalcDiffraction) {
+            computeCL(gl);
+        }
 
         gl.glClear (GL2.GL_COLOR_BUFFER_BIT | GL2.GL_DEPTH_BUFFER_BIT);
         float tx = (bufferWidth+0.0f) /(bufferWidth-0.0f);
@@ -343,6 +358,7 @@ public class DiffractionGLListener implements GLEventListener {
         gl.glUseProgram      (programId);
         gl.glUniformMatrix4fv(getLocation(gl, "M"),  1, false, FloatBuffer.wrap(identity_matrix));
         gl.glUniformMatrix4fv(getLocation(gl, "P"),  1, false, FloatBuffer.wrap(projection_matrix));
+        gl.glUniform1f(getLocation(gl,"exposure"), exposure);
         gl.glActiveTexture   (GL2.GL_TEXTURE0);
         gl.glBindTexture     (GL2.GL_TEXTURE_2D, texId);
         // draw quad
@@ -382,6 +398,7 @@ public class DiffractionGLListener implements GLEventListener {
             gl.glTexImage2D   (GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA8, bufferWidth, bufferHeight, 0,
                     GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, texBuffer.getBuffer().rewind());
         }
+        needCalcDiffraction = false;
     }
 
     @Override
@@ -407,11 +424,7 @@ public class DiffractionGLListener implements GLEventListener {
         return gl.glGetAttribLocation(programId, name);
     }
 
-    private void
-
-
-
-    setAtoms(float[] atoms) {
+    private void setAtoms(float[] atoms) {
         atomCount = atoms.length / 4;
 
         centerX = 0.0f;
@@ -475,10 +488,13 @@ public class DiffractionGLListener implements GLEventListener {
             diffractionKernel.setArg(1, psi);
             diffractionKernel.setArg(3, atomCount);
         }
+
+        needCalcDiffraction = true;
     }
 
-    public void setsetTransformMatrix(float[] atomsTransMat) {
+    public void setTransformMatrix(float[] atomsTransMat) {
         this.atomsTransMat = atomsTransMat;
+        needCalcDiffraction = true;
     }
 
     public void setAtoms(AtomSetCollection atomsCollection) {

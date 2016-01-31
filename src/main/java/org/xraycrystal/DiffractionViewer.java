@@ -115,13 +115,37 @@ public class DiffractionViewer
 
         JButton readFileBtn = new JButton("Open file...");
 
-        c.insets.set(6,6,6,6);
+        float initialExposure = diffractionRenderer.getExposure();
+        JLabel exposureLbl = new JLabel(String.format("Exposure: %.2f", initialExposure));
+
+        JSlider exposureSlider = new JSlider(1,1000);
+        exposureSlider.setValue(mkSliderValue(initialExposure));
+        exposureSlider.setLabelTable(sliderLabels);
+        exposureSlider.setPaintLabels(true);
+        exposureSlider.setMajorTickSpacing(333);
+        exposureSlider.setPaintTicks(true);
+
+        c.insets.set(6,6,3,6);
 
         c.gridx = 0;
         c.gridy = 0;
         c.gridheight = 10;
 
         frame.add(diffractionView, c);
+
+        c.insets.set(3,6,3,6);
+
+        c.gridx = 0;
+        c.gridy = 10;
+        c.gridheight = 1;
+
+        frame.add(exposureLbl, c);
+
+        c.gridy = 11;
+
+        c.insets.set(3,6,6,6);
+
+        frame.add(exposureSlider, c);
 
         c.insets.set(6,6,3,6);
 
@@ -193,6 +217,14 @@ public class DiffractionViewer
             }
         });
 
+        exposureSlider.addChangeListener( e -> {
+            float exposure = mkLambda(exposureSlider.getValue());
+
+            exposureLbl.setText(String.format("Exposure: %.2f", exposure));
+            diffractionRenderer.setExposure(exposure);
+            diffractionView.display();
+        });
+
         readFileBtn.addActionListener(e -> {
             if(null == fc) {
                 fc = new JFileChooser(new File("."));
@@ -219,7 +251,7 @@ public class DiffractionViewer
             public void mouseDragged(MouseEvent e) {
                 updateTransMatrix(e);
 
-                diffractionRenderer.setsetTransformMatrix(atomsTransMat);
+                diffractionRenderer.setTransformMatrix(atomsTransMat);
                 structureRenderer.setTransformMatrix(atomsTransMat);
 
                 structureView.display();
