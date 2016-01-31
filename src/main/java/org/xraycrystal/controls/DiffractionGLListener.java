@@ -22,8 +22,8 @@ public class DiffractionGLListener implements GLEventListener {
     private boolean GL_INTEROP   = true; // switch for CL-GL transfers
 
     private float lambda = 0.5f;
-    private static final float R = 1e-7f;
-    private static final float L = 1e-7f;
+    private static final float R = 5e-8f; // photo film is 5 cm away from crystall
+    private static final float L = 12e-8f; // photo film is square with 12 cm side
 
     private float amp = 1f;
 
