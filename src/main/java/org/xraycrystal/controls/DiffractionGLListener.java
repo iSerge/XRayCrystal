@@ -136,6 +136,21 @@ public class DiffractionGLListener implements GLEventListener {
 
     public void setLambda(float lambda) {
         this.lambda = lambda;
+        this.lambda_d = lambda;
+        if(null != initPhaseKernel){
+            if(CL_FP64) {
+                initPhaseKernel.setArg(3, lambda_d);
+            } else {
+                initPhaseKernel.setArg(3, lambda);
+            }
+        }
+        if(null != diffractionKernel){
+            if(CL_FP64) {
+                diffractionKernel.setArg(4, lambda_d);
+            } else {
+                diffractionKernel.setArg(4, lambda);
+            }
+        }
         needCalcDiffraction = true;
     }
 
@@ -317,7 +332,7 @@ public class DiffractionGLListener implements GLEventListener {
                     .putArg(transAtoms_d)
                     .putArg(psi_d)
                     .putArg(atomCount)
-                    .putArg(lambda_d * 1e-10f)
+                    .putArg(lambda_d * 1e-10)
                     .rewind();
         } else {
             atomTransformKernel = diffractionProg.createCLKernel("prepareLattice")
@@ -350,7 +365,7 @@ public class DiffractionGLListener implements GLEventListener {
                         .putArg(psi_d)
                         .putArg(texBuffer2)
                         .putArg(atomCount)
-                        .putArg(lambda_d * 1e-10f)
+                        .putArg(lambda_d * 1e-10)
                         .putArg(R_d)
                         .putArg(L_d)
                         .putArg(phase)
@@ -383,7 +398,7 @@ public class DiffractionGLListener implements GLEventListener {
                         .putArg(psi_d)
                         .putArg(texBuffer)
                         .putArg(atomCount)
-                        .putArg(lambda_d * 1e-10f)
+                        .putArg(lambda_d * 1e-10)
                         .putArg(R_d)
                         .putArg(L_d)
                         .putArg(phase)
