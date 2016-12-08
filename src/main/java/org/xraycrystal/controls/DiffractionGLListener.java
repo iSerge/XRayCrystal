@@ -11,21 +11,21 @@ import org.xraycrystal.util.GlUtils;
 import org.xraycrystal.util.Utils;
 
 import javax.vecmath.Point3f;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
+import java.nio.*;
 
 public class DiffractionGLListener implements GLEventListener {
     private int     bufferWidth  = 512; // texture size
     private int     bufferHeight = 512;
     private boolean GL_INTEROP   = true; // switch for CL-GL transfers
+    private boolean CL_FP64 = true; // true if openCL supports double precision floats
 
     private float lambda = 0.5f;
     private static final float R = 5e-8f; // photo film is 5 cm away from crystall
     private static final float L = 12e-8f; // photo film is square with 12 cm side
 
-    private float amp = 1f;
+    private double lambda_d = 0.5;
+    private static final double R_d = 5e-8; // photo film is 5 cm away from crystall
+    private static final double L_d = 12e-8; // photo film is square with 12 cm side
 
     private int phase = 0;
 
@@ -35,10 +35,20 @@ public class DiffractionGLListener implements GLEventListener {
     private float centerY;
     private float centerZ;
 
+    private double centerX_d;
+    private double centerY_d;
+    private double centerZ_d;
+
     private float[] atoms = {
             0f, 0f, 0f, 1f,
             3f, 0f, 0f, 1f
     };
+
+    private double[] atoms_d = {
+            0.0, 0.0, 0.0, 1.0,
+            3.0, 0.0, 0.0, 1.0
+    };
+
     private int atomCount = atoms.length / 4;
 
     private float[] atomsTransMat = {
@@ -47,6 +57,11 @@ public class DiffractionGLListener implements GLEventListener {
             0f, 0f, 1f
     };
 
+    private double[] atomsTransMat_d = {
+            1.0, 0.0, 0.0,
+            0.0, 1.0, 0.0,
+            0.0, 0.0, 1.0
+    };
 
     private float[] identity_matrix = new float[]{
             1.0f, 0.0f, 0.0f, 0.0f,
@@ -96,6 +111,11 @@ public class DiffractionGLListener implements GLEventListener {
     private CLBuffer<FloatBuffer> transAtoms;
     private CLBuffer<FloatBuffer> psi;
 
+    private CLBuffer<DoubleBuffer> transformMatrix_d;
+    private CLBuffer<DoubleBuffer> origAtoms_d;
+    private CLBuffer<DoubleBuffer> transAtoms_d;
+    private CLBuffer<DoubleBuffer> psi_d;
+
     private boolean needCalcDiffraction = true;
 
     public boolean getPhaseShadind() {
@@ -105,7 +125,7 @@ public class DiffractionGLListener implements GLEventListener {
     public void setPhaseShadind(boolean shadePhase){
         phase = shadePhase ? 1 : 0;
         if(null != diffractionKernel){
-            diffractionKernel.setArg(8, phase);
+            diffractionKernel.setArg(7, phase);
         }
         needCalcDiffraction = true;
     }
@@ -146,6 +166,8 @@ public class DiffractionGLListener implements GLEventListener {
             } else {
                 clContext  = CLContext.create(device);
             }
+
+            CL_FP64 = device.isExtensionAvailable("cl_khr_fp64") || device.isExtensionAvailable("cl_amd_fp64");
 
             // enable GL error checking using the composable pipeline
             drawable.setGL(new DebugGL3(drawable.getGL().getGL3()));
@@ -264,33 +286,57 @@ public class DiffractionGLListener implements GLEventListener {
 
         commandQueue = device.createCommandQueue();
 
-        setAtoms(atoms);
+        if(CL_FP64){
+            setAtoms(atoms_d);
 
-        transformMatrix = clContext.createFloatBuffer(9, CLMemory.Mem.READ_ONLY);
-        transformMatrix.getBuffer().put(atomsTransMat).rewind();
-        commandQueue.putWriteBuffer(transformMatrix, false);
+            transformMatrix_d = clContext.createDoubleBuffer(9, CLMemory.Mem.READ_ONLY);
+            transformMatrix_d.getBuffer().put(atomsTransMat_d).rewind();
+            commandQueue.putWriteBuffer(transformMatrix_d, false);
+        } else {
+            setAtoms(atoms);
 
-//        transAtoms = clContext.createFloatBuffer(atomCount * 4, CLMemory.Mem.READ_WRITE);
-//        CLBuffer<FloatBuffer> psi = clContext.createFloatBuffer(atomCount * 2, CLMemory.Mem.READ_WRITE);
+            transformMatrix = clContext.createFloatBuffer(9, CLMemory.Mem.READ_ONLY);
+            transformMatrix.getBuffer().put(atomsTransMat).rewind();
+            commandQueue.putWriteBuffer(transformMatrix, false);
+        }
 
         commandQueue.finish();
 
-        atomTransformKernel = diffractionProg.createCLKernel("prepareLattice")
-                .putArg(origAtoms)
-                .putArg(transAtoms)
-                .putArg(transformMatrix)
-                .putArg(atomCount)
-                .putArg(centerX)
-                .putArg(centerY)
-                .putArg(centerZ)
-                .rewind();
+        if(CL_FP64){
+            atomTransformKernel = diffractionProg.createCLKernel("prepareLattice")
+                    .putArg(origAtoms_d)
+                    .putArg(transAtoms_d)
+                    .putArg(transformMatrix_d)
+                    .putArg(atomCount)
+                    .putArg(centerX_d)
+                    .putArg(centerY_d)
+                    .putArg(centerZ_d)
+                    .rewind();
 
-        initPhaseKernel = diffractionProg.createCLKernel("initPhase")
-                .putArg(transAtoms)
-                .putArg(psi)
-                .putArg(atomCount)
-                .putArg(lambda*1e-10f)
-                .rewind();
+            initPhaseKernel = diffractionProg.createCLKernel("initPhase")
+                    .putArg(transAtoms_d)
+                    .putArg(psi_d)
+                    .putArg(atomCount)
+                    .putArg(lambda_d * 1e-10f)
+                    .rewind();
+        } else {
+            atomTransformKernel = diffractionProg.createCLKernel("prepareLattice")
+                    .putArg(origAtoms)
+                    .putArg(transAtoms)
+                    .putArg(transformMatrix)
+                    .putArg(atomCount)
+                    .putArg(centerX)
+                    .putArg(centerY)
+                    .putArg(centerZ)
+                    .rewind();
+
+            initPhaseKernel = diffractionProg.createCLKernel("initPhase")
+                    .putArg(transAtoms)
+                    .putArg(psi)
+                    .putArg(atomCount)
+                    .putArg(lambda * 1e-10f)
+                    .rewind();
+        }
 
         if (GL_INTEROP) {
             texBuffer2 = clContext2.createFromGLTexture2d(GL2.GL_TEXTURE_2D,
@@ -298,17 +344,29 @@ public class DiffractionGLListener implements GLEventListener {
             System.out.println("cl buffer type:        " + texBuffer2.getGLObjectType());
             System.out.println("shared with gl buffer: " + texBuffer2.getGLObjectID());
 
-            diffractionKernel = diffractionProg.createCLKernel("diffraction")
-                    .putArg(transAtoms)
-                    .putArg(psi)
-                    .putArg(texBuffer2)
-                    .putArg(atomCount)
-                    .putArg(lambda*1e-10f)
-                    .putArg(R)
-                    .putArg(L)
-                    .putArg(amp)
-                    .putArg(phase)
-                    .rewind();
+            if(CL_FP64){
+                diffractionKernel = diffractionProg.createCLKernel("diffraction")
+                        .putArg(transAtoms_d)
+                        .putArg(psi_d)
+                        .putArg(texBuffer2)
+                        .putArg(atomCount)
+                        .putArg(lambda_d * 1e-10f)
+                        .putArg(R_d)
+                        .putArg(L_d)
+                        .putArg(phase)
+                        .rewind();
+            } else {
+                diffractionKernel = diffractionProg.createCLKernel("diffraction")
+                        .putArg(transAtoms)
+                        .putArg(psi)
+                        .putArg(texBuffer2)
+                        .putArg(atomCount)
+                        .putArg(lambda * 1e-10f)
+                        .putArg(R)
+                        .putArg(L)
+                        .putArg(phase)
+                        .rewind();
+            }
 
         } else {
             // Create an empty OpenCL buffer
@@ -319,17 +377,29 @@ public class DiffractionGLListener implements GLEventListener {
 
             System.out.println(String.format("texture-size=%d", texBuffer.getBuffer().capacity()));
 
-            diffractionKernel = diffractionProg.createCLKernel("diffraction")
-                    .putArg(transAtoms)
-                    .putArg(psi)
-                    .putArg(texBuffer)
-                    .putArg(atomCount)
-                    .putArg(lambda*1e-10f)
-                    .putArg(R)
-                    .putArg(L)
-                    .putArg(amp)
-                    .putArg(phase)
-                    .rewind();
+            if(CL_FP64){
+                diffractionKernel = diffractionProg.createCLKernel("diffraction")
+                        .putArg(transAtoms_d)
+                        .putArg(psi_d)
+                        .putArg(texBuffer)
+                        .putArg(atomCount)
+                        .putArg(lambda_d * 1e-10f)
+                        .putArg(R_d)
+                        .putArg(L_d)
+                        .putArg(phase)
+                        .rewind();
+            } else {
+                diffractionKernel = diffractionProg.createCLKernel("diffraction")
+                        .putArg(transAtoms)
+                        .putArg(psi)
+                        .putArg(texBuffer)
+                        .putArg(atomCount)
+                        .putArg(lambda * 1e-10f)
+                        .putArg(R)
+                        .putArg(L)
+                        .putArg(phase)
+                        .rewind();
+            }
         }
 
         System.out.println("cl initialised");
@@ -371,11 +441,19 @@ public class DiffractionGLListener implements GLEventListener {
         // ensure pipeline is clean before doing cl work
         gl.glFinish();
 
-        transformMatrix.getBuffer().put(atomsTransMat).rewind();
-        commandQueue.putWriteBuffer(transformMatrix, false);
+        if(CL_FP64){
+            transformMatrix_d.getBuffer().put(atomsTransMat_d).rewind();
+            commandQueue.putWriteBuffer(transformMatrix_d, false);
 
-        initPhaseKernel.setArg(3, lambda*1e-10f);
-        diffractionKernel.setArg(4, lambda*1e-10f);
+            initPhaseKernel.setArg(3, lambda_d * 1e-10);
+            diffractionKernel.setArg(4, lambda_d * 1e-10);
+        } else {
+            transformMatrix.getBuffer().put(atomsTransMat).rewind();
+            commandQueue.putWriteBuffer(transformMatrix, false);
+
+            initPhaseKernel.setArg(3, lambda * 1e-10f);
+            diffractionKernel.setArg(4, lambda * 1e-10f);
+        }
 
         if (GL_INTEROP) {
             commandQueue.putAcquireGLObject(texBuffer2)
@@ -395,9 +473,10 @@ public class DiffractionGLListener implements GLEventListener {
             // Copy data from the CL image buffer to the GL texture
             gl.glActiveTexture(GL2.GL_TEXTURE0);
             gl.glBindTexture  (GL2.GL_TEXTURE_2D, texId);
-            gl.glTexImage2D   (GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA8, bufferWidth, bufferHeight, 0,
-                    GL2.GL_RGBA, GL2.GL_UNSIGNED_BYTE, texBuffer.getBuffer().rewind());
+            gl.glTexImage2D   (GL2.GL_TEXTURE_2D, 0, GL2.GL_RGBA32F, bufferWidth, bufferHeight, 0,
+                    GL2.GL_RGBA, GL2.GL_FLOAT, texBuffer.getBuffer().rewind());
         }
+
         needCalcDiffraction = false;
     }
 
@@ -492,35 +571,131 @@ public class DiffractionGLListener implements GLEventListener {
         needCalcDiffraction = true;
     }
 
+    private void setAtoms(double[] atoms) {
+        atomCount = atoms.length / 4;
+
+        centerX_d = 0.0f;
+        centerY_d = 0.0f;
+        centerZ_d = 0.0f;
+
+        for(int i = 0; i < atomCount; ++i){
+            atoms[i*4] *= 1e-10;
+            atoms[i*4+1] *= 1e-10;
+            atoms[i*4+2] *= 1e-10;
+
+            centerX_d += atoms[i*4];
+            centerY_d += atoms[i*4+1];
+            centerZ_d += atoms[i*4+2];
+        }
+
+        centerX_d /= atomCount;
+        centerY_d /= atomCount;
+        centerZ_d /= atomCount;
+
+        commandQueue.finish();
+
+        if(null != origAtoms_d){
+            origAtoms_d.release();
+        }
+
+        origAtoms_d = clContext.createDoubleBuffer(atomCount*4, CLMemory.Mem.READ_ONLY);
+        origAtoms_d.getBuffer().put(atoms).rewind();
+        commandQueue.putWriteBuffer(origAtoms_d, false);
+
+        if(null != transAtoms_d){
+            transAtoms_d.release();
+        }
+
+        transAtoms_d = clContext.createDoubleBuffer(atomCount*4, CLMemory.Mem.READ_WRITE);
+
+        if(null != psi_d){
+            psi_d.release();
+        }
+        psi_d = clContext.createDoubleBuffer(atomCount * 2, CLMemory.Mem.READ_WRITE);
+
+
+        if(null != atomTransformKernel) {
+            atomTransformKernel.setArg(0, origAtoms_d);
+            atomTransformKernel.setArg(1, transAtoms_d);
+            atomTransformKernel.setArg(3, atomCount);
+            atomTransformKernel.setArg(4, centerX_d)
+                    .setArg(5, centerY_d)
+                    .setArg(6, centerZ_d);
+
+        }
+
+        if(null != initPhaseKernel) {
+            initPhaseKernel.setArg(0, transAtoms_d);
+            initPhaseKernel.setArg(1, psi_d);
+            initPhaseKernel.setArg(2, atomCount);
+        }
+
+        if(null != diffractionKernel) {
+            diffractionKernel.setArg(0, transAtoms_d);
+            diffractionKernel.setArg(1, psi_d);
+            diffractionKernel.setArg(3, atomCount);
+        }
+
+        needCalcDiffraction = true;
+    }
+
     public void setTransformMatrix(float[] atomsTransMat) {
         this.atomsTransMat = atomsTransMat;
+        for(int i = 0; i< atomsTransMat.length; ++i){
+            atomsTransMat_d[i] = atomsTransMat[i];
+        }
         needCalcDiffraction = true;
     }
 
     public void setAtoms(AtomSetCollection atomsCollection) {
         int atomCount = atomsCollection.getAtomCount();
-        atoms = new float[atomCount*4];
+
+        if(CL_FP64){
+            atoms_d = new double[atomCount * 4];
+        } else {
+            atoms = new float[atomCount * 4];
+        }
 
         SymmetryInterface symmetry = atomsCollection.getSymmetry();
 
         for(int i = 0; i < atomCount; ++i){
             if(null == symmetry || !symmetry.haveUnitCell()){
                 Atom atom = atomsCollection.getAtom(i);
-                atoms[i*4] = atom.x;
-                atoms[i*4 + 1] = atom.y;
-                atoms[i*4 + 2] = atom.z;
+                if(CL_FP64){
+                    atoms_d[i * 4] = atom.x;
+                    atoms_d[i * 4 + 1] = atom.y;
+                    atoms_d[i * 4 + 2] = atom.z;
+                } else {
+                    atoms[i * 4] = atom.x;
+                    atoms[i * 4 + 1] = atom.y;
+                    atoms[i * 4 + 2] = atom.z;
+                }
             } else {
                 Point3f atom = new Point3f(atomsCollection.getAtom(i));
                 symmetry.toCartesian(atom, true);
 
-                atoms[i*4] = atom.x;
-                atoms[i*4 + 1] = atom.y;
-                atoms[i*4 + 2] = atom.z;
+                if(CL_FP64){
+                    atoms_d[i * 4] = atom.x;
+                    atoms_d[i * 4 + 1] = atom.y;
+                    atoms_d[i * 4 + 2] = atom.z;
+                } else {
+                    atoms[i * 4] = atom.x;
+                    atoms[i * 4 + 1] = atom.y;
+                    atoms[i * 4 + 2] = atom.z;
+                }
             }
 
-            atoms[i*4 + 3] = 1.0f;
+            if(CL_FP64){
+                atoms_d[i * 4 + 3] = 1.0;
+            } else {
+                atoms[i * 4 + 3] = 1.0f;
+            }
         }
 
-        setAtoms(atoms);
+            if(CL_FP64){
+                setAtoms(atoms_d);
+            } else {
+                setAtoms(atoms);
+            }
     }
 }

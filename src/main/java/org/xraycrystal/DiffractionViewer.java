@@ -76,7 +76,7 @@ public class DiffractionViewer
         phaseCB.setSelected(diffractionRenderer.getPhaseShadind());
 
         JPanel wlPanel = new JPanel();
-        wlPanel.add(new JLabel("Wavelength, \u00c5"));//Å"));
+        wlPanel.add(new JLabel("Wavelength, \u00c5"));// \u00c5 -> Å
         float lambda = diffractionRenderer.getLambda();
         JTextField wlField = new JTextField(String.valueOf(lambda), 6);
         wlPanel.add(wlField);
