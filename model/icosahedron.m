@@ -40,7 +40,7 @@ tindices = [
     5  6 10   % 20
 ]';
 
-n = size(tindices)(2);
+n = size(tindices,2);
 
 for i = 1:n
   a = vdata(:,tindices(2,i)) - vdata(:,tindices(1,i));
@@ -48,17 +48,17 @@ for i = 1:n
   c = cross(a,b);
   c = c/sqrt(c'*c);
   d = (vdata(:,tindices(1,i)) + vdata(:,tindices(2,i)) + vdata(:,tindices(3,i)))/3;
-#  display(c);
-#  display(d);
-  printf("Face %d orientation %d %d %d\n", i, c' * vdata(:,tindices(1,i)), c' * vdata(:,tindices(2,i)), c' * vdata(:,tindices(3,i)));
-endfor
+%  display(c);
+%  display(d);
+%  printf('Face %d orientation %d %d %d\n', i, c' * vdata(:,tindices(1,i)), c' * vdata(:,tindices(2,i)), c' * vdata(:,tindices(3,i)));
+end
 
 close all;
 
-scatter3(vdata(1,:), vdata(2,:), vdata(3,:));
-patch('Faces',tindices','Vertices',vdata','FaceColor','r');
-xlabel("x");
-ylabel("y");
-zlabel("z");
+%scatter3(vdata(1,:), vdata(2,:), vdata(3,:));
+patch('Faces',tindices','Vertices',vdata','FaceColor','none');
+xlabel('x');
+ylabel('y');
+zlabel('z');
 
 view(00,90);
