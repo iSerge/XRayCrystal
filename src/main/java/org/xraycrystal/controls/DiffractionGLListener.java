@@ -16,6 +16,8 @@ import java.nio.*;
 public class DiffractionGLListener implements GLEventListener {
     private int     bufferWidth  = 512; // texture size
     private int     bufferHeight = 512;
+    private int     atomGroupGlblSize = bufferWidth;
+    private final int atomGroupLocalSize = 512;
     private boolean GL_INTEROP   = true; // switch for CL-GL transfers
     private boolean CL_FP64 = true; // true if openCL supports double precision floats
 
@@ -183,6 +185,12 @@ public class DiffractionGLListener implements GLEventListener {
             }
 
             CL_FP64 = device.isExtensionAvailable("cl_khr_fp64") || device.isExtensionAvailable("cl_amd_fp64");
+
+            // checking device capabilities
+            System.out.println("Local mem size: " +device.getLocalMemSize());
+            System.out.println("Local mem type: " +device.getLocalMemType());
+            System.out.println("Max compute units: " +device.getMaxComputeUnits());
+            System.out.println("Max work group size: " +device.getMaxWorkGroupSize());
 
             // enable GL error checking using the composable pipeline
             drawable.setGL(new DebugGL3(drawable.getGL().getGL3()));
@@ -472,15 +480,15 @@ public class DiffractionGLListener implements GLEventListener {
 
         if (GL_INTEROP) {
             commandQueue.putAcquireGLObject(texBuffer2)
-                    .put1DRangeKernel(atomTransformKernel, 0, bufferWidth, bufferWidth)
-                    .put1DRangeKernel(initPhaseKernel, 0, bufferWidth, bufferWidth)
+                    .put1DRangeKernel(atomTransformKernel, 0, atomGroupGlblSize, atomGroupLocalSize)
+                    .put1DRangeKernel(initPhaseKernel, 0, atomGroupGlblSize, atomGroupLocalSize)
                     .put2DRangeKernel(diffractionKernel, 0, 0, bufferWidth, bufferHeight, 16, 16)
                     .putReleaseGLObject(texBuffer2)
                     .finish();
 
         } else {
-            commandQueue.put1DRangeKernel(atomTransformKernel, 0, bufferWidth, bufferWidth)
-                    .put1DRangeKernel(initPhaseKernel, 0, bufferWidth, bufferWidth)
+            commandQueue.put1DRangeKernel(atomTransformKernel, 0, atomGroupGlblSize, atomGroupLocalSize)
+                    .put1DRangeKernel(initPhaseKernel, 0, atomGroupGlblSize, atomGroupLocalSize)
                     .put2DRangeKernel(diffractionKernel, 0, 0, bufferWidth, bufferHeight, 16, 16)
                     .putReadImage(texBuffer, true)
                     .finish();
@@ -520,6 +528,9 @@ public class DiffractionGLListener implements GLEventListener {
 
     private void setAtoms(float[] atoms) {
         atomCount = atoms.length / 4;
+        System.out.println("Number of atoms: " + atomCount);
+
+        atomGroupGlblSize = atomGroupLocalSize * ((atomCount - 1) / atomGroupLocalSize + 1);
 
         centerX = 0.0f;
         centerY = 0.0f;
@@ -588,6 +599,9 @@ public class DiffractionGLListener implements GLEventListener {
 
     private void setAtoms(double[] atoms) {
         atomCount = atoms.length / 4;
+        System.out.println("Number of atoms: " + atomCount);
+
+        atomGroupGlblSize = atomGroupLocalSize * ((atomCount - 1) / atomGroupLocalSize + 1);
 
         centerX_d = 0.0f;
         centerY_d = 0.0f;
