@@ -319,7 +319,7 @@ public class DiffractionViewer
 
         float[] diffMatrix = Utils.matMul( My, Mx, 3);
 
-        atomsTransMat = Utils.matMul(diffMatrix, atomsTransMat, 3);
+        atomsTransMat = Utils.matMul(atomsTransMat, diffMatrix, 3);
     }
 
     public AtomSetCollection loadFile(String name, int cellsNumber){
