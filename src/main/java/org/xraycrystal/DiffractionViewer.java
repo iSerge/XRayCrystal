@@ -45,12 +45,14 @@ public class DiffractionViewer
     }
 
     private void initUI() {
+        JCheckBox useDoubleCB = new JCheckBox("Use double precision");
+
         adapter = new SmarterJmolAdapter();
 
         GLCapabilities config = new GLCapabilities(GLProfile.get(GLProfile.GL4));
 
         diffractionView = new GLCanvas(config);
-        DiffractionGLListener diffractionRenderer = new DiffractionGLListener();
+        DiffractionGLListener diffractionRenderer = new DiffractionGLListener(useDoubleCB::setEnabled);
         diffractionView.addGLEventListener(diffractionRenderer);
 
         JFrame frame = new JFrame("Diffraction viewer");
@@ -71,9 +73,11 @@ public class DiffractionViewer
         structureView.addGLEventListener(structureRenderer);
         structureView.setPreferredSize(new Dimension(256,256));
 
-        JCheckBox phaseCB = new JCheckBox("Show phase");
-
-        phaseCB.setSelected(diffractionRenderer.getPhaseShadind());
+        if(diffractionRenderer.isDoublePrecisionAvailable()) {
+            useDoubleCB.setSelected(diffractionRenderer.getUseDouble());
+        } else {
+            useDoubleCB.setEnabled(false);
+        }
 
         JPanel wlPanel = new JPanel();
         wlPanel.add(new JLabel("Wavelength, \u00c5"));// \u00c5 -> Å
@@ -157,7 +161,7 @@ public class DiffractionViewer
         c.insets.set(3,6,3,6);
 
         c.gridy = 1;
-        frame.add(phaseCB, c);
+        frame.add(useDoubleCB, c);
 
         c.gridy = 2;
         frame.add(wlPanel, c);
@@ -180,8 +184,8 @@ public class DiffractionViewer
         frame.setLocationRelativeTo(null);
         frame.setVisible(true);
 
-        phaseCB.addItemListener(e -> {
-            diffractionRenderer.setPhaseShadind(((JCheckBox)e.getSource()).isSelected());
+        useDoubleCB.addItemListener(e -> {
+            diffractionRenderer.setUseDouble(((JCheckBox)e.getSource()).isSelected());
             diffractionView.display();
         });
 
@@ -322,7 +326,7 @@ public class DiffractionViewer
         atomsTransMat = Utils.matMul(atomsTransMat, diffMatrix, 3);
     }
 
-    public AtomSetCollection loadFile(String name, int cellsNumber){
+    private AtomSetCollection loadFile(String name, int cellsNumber){
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(name)));
 
