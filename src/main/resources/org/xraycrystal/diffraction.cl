@@ -14,23 +14,7 @@ kernel void prepareLattice(global float4* aIn,  global float4* aOut, global floa
     }
 }
 
-kernel void initPhase(global float4* atoms,  global float2* phase, const unsigned int n, const float lambda){
-    size_t i = get_global_id(0);
-
-    const float k = _2PI / lambda;
-
-    if(i < n){
-        float p = k * atoms[i].z;
-
-        float co;
-        float si = sincos(p, &co);
-
-        phase[i].x = co;
-        phase[i].y = si;
-    }
-}
-
-kernel void diffraction(global float4* atoms,  global float2* psi, write_only image2d_t img, const unsigned int n,
+kernel void diffraction(global float4* atoms, write_only image2d_t img, const unsigned int n,
                         const float lambda, const float R, const float L)
 {
     int2 pos = (int2)(get_global_id(0), get_global_id(1));
@@ -53,14 +37,14 @@ kernel void diffraction(global float4* atoms,  global float2* psi, write_only im
     for(size_t i = 0; i < n; ++i){
         float3 atom = atoms[i].xyz;
         float r = distance((float3)(Lx,Ly,R), atom);
-        float phase = fmod(k*r, _2PI);
+        float phase = fmod(k*(r+atom.z), _2PI);
 
         float co;
         float si = sincos(phase, &co);
 
         float2 j;
-        j.x +=  psi[i].x*co - psi[i].y*si;
-        j.y +=  psi[i].y*co + psi[i].x*si;
+        j.x += co;
+        j.y += si;
 
         u = j - c;
         t = I + u;
