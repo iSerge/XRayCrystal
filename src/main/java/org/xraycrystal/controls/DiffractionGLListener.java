@@ -79,10 +79,10 @@ public class DiffractionGLListener implements GLEventListener {
             0.0f, 0.0f, 0.0f, 1.0f
     };
     private float[] quadTexcoords = new float[]{
-            0.0f,  1.0f, // note the t-coord in (s,t) is mirrored!
-            1.0f,  1.0f,
+            0.0f,  0.0f, // note the t-coord in (s,t) is mirrored!
             1.0f,  0.0f,
-            0.0f,  0.0f
+            1.0f,  1.0f,
+            0.0f,  1.0f
     };
     private float[] quadCoords  = new float[]{
             0.0f,        0.0f,
