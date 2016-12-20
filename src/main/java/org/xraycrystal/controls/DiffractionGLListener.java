@@ -321,12 +321,15 @@ public class DiffractionGLListener implements GLEventListener {
         System.out.println(diffractionProg.isExecutable());
         System.out.println(diffractionProg.getBuildLog());
 
-        String diffractionProgram_d = Utils.readResource("/org/xraycrystal/diffraction_d.cl");
-        CLProgram diffractionProg_d = clContext.createProgram(diffractionProgram_d);
-        diffractionProg_d.build();
-        System.out.println(diffractionProg_d.getBuildStatus());
-        System.out.println(diffractionProg_d.isExecutable());
-        System.out.println(diffractionProg_d.getBuildLog());
+        CLProgram diffractionProg_d = null;
+        if(CL_FP64) {
+            String diffractionProgram_d = Utils.readResource("/org/xraycrystal/diffraction_d.cl");
+            diffractionProg_d = clContext.createProgram(diffractionProgram_d);
+            diffractionProg_d.build();
+            System.out.println(diffractionProg_d.getBuildStatus());
+            System.out.println(diffractionProg_d.isExecutable());
+            System.out.println(diffractionProg_d.getBuildLog());
+        }
 
         commandQueue = device.createCommandQueue();
 
